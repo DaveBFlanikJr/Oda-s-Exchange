@@ -6,6 +6,7 @@ When starting work from a request, create a focused branch from the latest `mast
 
 - Feature work: `feature/<kebab-case-feature-name>`
 - Fix work: `fix/<kebab-case-fix-name>`
+- Existing feature improvements: `enhancement/<kebab-case-enhancement-name>`
 
 Examples:
 
@@ -13,6 +14,8 @@ Examples:
 - `feature/supabase-public-read-client`
 - `fix/rate-limit-production-config`
 - `fix/card-detail-empty-state`
+- `enhancement/catalog-filter-polish`
+- `enhancement/card-detail-chart-tooltips`
 
 Use lowercase kebab-case after the slash. Keep branch names short, descriptive, and scoped to one change.
 
