@@ -17,3 +17,13 @@ export function getPublicSupabaseClient() {
     }
   );
 }
+
+export function getRequiredPublicSupabaseClient() {
+  const supabase = getPublicSupabaseClient();
+
+  if (!supabase) {
+    throw new Error("Supabase public credentials are missing.");
+  }
+
+  return supabase;
+}

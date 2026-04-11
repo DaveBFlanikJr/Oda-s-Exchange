@@ -1,14 +1,14 @@
-import { getAdminSupabaseClient } from "@/lib/supabase/admin-client";
+import { getRequiredPublicSupabaseClient } from "@/lib/supabase/public-client";
 import type {
   CardRow,
   PriceHistoryRow,
   VariantRow
 } from "@/lib/card-detail/types";
 
-export type CardDetailSupabaseClient = ReturnType<typeof getAdminSupabaseClient>;
+export type CardDetailSupabaseClient = ReturnType<typeof getRequiredPublicSupabaseClient>;
 
 export function getCardDetailSupabaseClient() {
-  return getAdminSupabaseClient();
+  return getRequiredPublicSupabaseClient();
 }
 
 export async function loadVariantsForCard(
