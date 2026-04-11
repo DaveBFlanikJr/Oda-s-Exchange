@@ -1,4 +1,4 @@
-import { getAdminSupabaseClient } from "@/lib/supabase/admin-client";
+import { getRequiredPublicSupabaseClient } from "@/lib/supabase/public-client";
 import type { VariantType } from "@/lib/types/cards";
 
 export type CatalogItem = {
@@ -39,8 +39,10 @@ type PriceHistoryRow = {
   recorded_at: string;
 };
 
+type CatalogSupabaseClient = ReturnType<typeof getRequiredPublicSupabaseClient>;
+
 export async function getCatalogItems(limit = 2500) {
-  const supabase = getAdminSupabaseClient();
+  const supabase = getRequiredPublicSupabaseClient();
 
   const { data, error } = await supabase
     .from("card_variants")
@@ -134,7 +136,7 @@ function normalizeRarity(rarity: string | null) {
 }
 
 async function getCatalogPriceSnapshots(
-  supabase: ReturnType<typeof getAdminSupabaseClient>,
+  supabase: CatalogSupabaseClient,
   variants: VariantRow[]
 ) {
   const snapshots = new Map<
