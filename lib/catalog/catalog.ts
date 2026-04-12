@@ -1,4 +1,4 @@
-import { getRequiredPublicSupabaseClient } from "@/lib/supabase/public-client";
+import { getServerSupabaseClient } from "@/lib/supabase/server-client";
 import type { VariantType } from "@/lib/types/cards";
 
 export type CatalogItem = {
@@ -39,10 +39,10 @@ type PriceHistoryRow = {
   recorded_at: string;
 };
 
-type CatalogSupabaseClient = ReturnType<typeof getRequiredPublicSupabaseClient>;
+type CatalogSupabaseClient = ReturnType<typeof getServerSupabaseClient>;
 
 export async function getCatalogItems(limit = 2500) {
-  const supabase = getRequiredPublicSupabaseClient();
+  const supabase = getServerSupabaseClient();
 
   const { data, error } = await supabase
     .from("card_variants")
