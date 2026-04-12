@@ -1,0 +1,153 @@
+{
+  "schema": "price-ingestion-fixture/v1",
+  "description": "Representative source listings for later pure-helper parser, matcher, and canonical-derivation tests.",
+  "cardCode": "EB02-061",
+  "cases": [
+    {
+      "id": "card_rush_standard_near_mint",
+      "source": "card_rush",
+      "source_listing_id": "eb02-061-standard-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=EB02-061",
+      "raw_title": "EB02-061 モンキー・D・ルフィ SEC",
+      "raw_condition": "状態A-",
+      "raw_price_text": "¥12,800",
+      "availability_status": "available",
+      "expected": {
+        "normalized_card_code": "EB02-061",
+        "listing_kind": "single_card",
+        "variant_treatment": "standard",
+        "condition": "near_mint",
+        "match_confidence": "high",
+        "should_enter_canonical": true
+      }
+    },
+    {
+      "id": "card_rush_manga_variant",
+      "source": "card_rush",
+      "source_listing_id": "eb02-061-manga-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=EB02-061",
+      "raw_title": "EB02-061 モンキー・D・ルフィ SEC 漫画背景 漫画絵",
+      "raw_condition": "状態A",
+      "raw_price_text": "¥38,000",
+      "availability_status": "available",
+      "expected": {
+        "normalized_card_code": "EB02-061",
+        "listing_kind": "single_card",
+        "variant_treatment": "manga",
+        "condition": "mint",
+        "match_confidence": "high",
+        "should_enter_canonical": true
+      }
+    },
+    {
+      "id": "card_rush_alt_art_illustrator_variant",
+      "source": "card_rush",
+      "source_listing_id": "eb02-061-altart-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=EB02-061",
+      "raw_title": "EB02-061 モンキー・D・ルフィ SEC パラレル illust:Makitoshi",
+      "raw_condition": "状態A",
+      "raw_price_text": "¥24,800",
+      "availability_status": "available",
+      "expected": {
+        "normalized_card_code": "EB02-061",
+        "listing_kind": "single_card",
+        "variant_treatment": "alt_art",
+        "condition": "mint",
+        "match_confidence": "medium",
+        "should_enter_canonical": true
+      }
+    },
+    {
+      "id": "card_rush_damaged_listing",
+      "source": "card_rush",
+      "source_listing_id": "eb02-061-damaged-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=EB02-061",
+      "raw_title": "EB02-061 モンキー・D・ルフィ SEC",
+      "raw_condition": "状態C",
+      "raw_price_text": "¥7,200",
+      "availability_status": "available",
+      "expected": {
+        "normalized_card_code": "EB02-061",
+        "listing_kind": "single_card",
+        "variant_treatment": "standard",
+        "condition": "damaged",
+        "match_confidence": "high",
+        "should_enter_canonical": false
+      }
+    },
+    {
+      "id": "card_rush_graded_listing",
+      "source": "card_rush",
+      "source_listing_id": "eb02-061-graded-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=EB02-061",
+      "raw_title": "EB02-061 モンキー・D・ルフィ PSA10",
+      "raw_condition": "鑑定品",
+      "raw_price_text": "¥49,800",
+      "availability_status": "available",
+      "expected": {
+        "normalized_card_code": "EB02-061",
+        "listing_kind": "graded_card",
+        "variant_treatment": "standard",
+        "condition": "graded",
+        "match_confidence": "medium",
+        "should_enter_canonical": false
+      }
+    },
+    {
+      "id": "card_rush_sold_out_row",
+      "source": "card_rush",
+      "source_listing_id": "eb02-061-soldout-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=EB02-061",
+      "raw_title": "EB02-061 モンキー・D・ルフィ SEC",
+      "raw_condition": "状態A",
+      "raw_price_text": "¥12,800",
+      "availability_status": "sold_out",
+      "expected": {
+        "normalized_card_code": "EB02-061",
+        "listing_kind": "single_card",
+        "variant_treatment": "standard",
+        "condition": "mint",
+        "match_confidence": "high",
+        "should_enter_canonical": false
+      }
+    },
+    {
+      "id": "card_rush_deck_noise",
+      "source": "card_rush",
+      "source_listing_id": "eb02-061-deck-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=EB02-061",
+      "raw_title": "EB02-061 を含む構築済みデッキセット",
+      "raw_condition": "新品",
+      "raw_price_text": "¥3,980",
+      "availability_status": "available",
+      "expected": {
+        "normalized_card_code": "EB02-061",
+        "listing_kind": "deck_product",
+        "variant_treatment": "noise",
+        "condition": "unknown",
+        "match_confidence": "low",
+        "excluded_reason": "deck_product",
+        "should_enter_canonical": false
+      }
+    },
+    {
+      "id": "card_rush_ambiguous_variant",
+      "source": "card_rush",
+      "source_listing_id": "eb02-061-ambiguous-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=EB02-061",
+      "raw_title": "EB02-061 モンキー・D・ルフィ SEC パラレル",
+      "raw_condition": "状態A",
+      "raw_price_text": "¥19,800",
+      "availability_status": "available",
+      "expected": {
+        "normalized_card_code": "EB02-061",
+        "listing_kind": "single_card",
+        "variant_treatment": "alt_art",
+        "condition": "mint",
+        "match_confidence": "low",
+        "excluded_reason": "ambiguous_variant",
+        "should_enter_canonical": false
+      }
+    }
+  ]
+}
