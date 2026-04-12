@@ -17,16 +17,17 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 - [ ] Do not run automated Card Rush scraping until a permitted data-use path is confirmed.
 - [ ] Contact Card Rush through their published data-use/partnership path before using Card Rush price data in an automated collector.
 - [ ] Treat Card Rush as a manually captured fixture source only until approval or an authorized feed exists.
-- [ ] Add a per-source policy record before enabling any collector: policy URL, permission status, allowed collection method, rate/frequency limit, and last review date.
-- [ ] Disable scheduled collection for any source whose policy is unknown, unclear, or incompatible with automated price collection.
+- [x] Seed `source_compliance_records` for Card Rush, Yuyu-Tei, and Mercari JP with cautious defaults; Card Rush remains `restricted` and `manual_fixture` only, with scheduled collection disabled until approval or an authorized feed exists.
+- [x] Add per-source policy records before enabling any collector: policy URL, permission status, allowed collection method, rate/frequency limit, and last review date.
+- [x] Disable scheduled collection for any source whose policy is unknown, unclear, or incompatible with automated price collection.
 
 ## Raw Observation Storage
 
-- [ ] Add a raw observation table before writing new source data into `price_history`.
-- [ ] Retain enough evidence to debug bad matches later: `source`, `source_listing_id`, `source_url`, `observed_at`, `parser_version`, `normalized_card_code`, `raw_title`, `raw_condition`, `raw_price_text`, `price_jpy`, `availability_status`, `listing_kind`, `raw_text_snapshot`, `snapshot_ref`, `excluded_reason`, `match_confidence`, and `matched_variant_id`.
+- [x] Add a raw observation table before writing new source data into `price_history`.
+- [x] Retain enough evidence to debug bad matches later: `source`, `source_listing_id`, `source_url`, `observed_at`, `parser_version`, `normalized_card_code`, `raw_title`, `raw_condition`, `raw_price_text`, `price_jpy`, `availability_status`, `listing_kind`, `raw_text_snapshot`, `snapshot_ref`, `excluded_reason`, `match_confidence`, and `matched_variant_id`.
 - [ ] Store normalized parse output, not just a hash.
 - [ ] Keep durable snapshot references for manually approved fixtures and any future authorized feeds.
-- [ ] Do not write low-confidence or excluded raw observations into canonical pricing outputs.
+- [x] Do not write low-confidence or excluded raw observations into canonical pricing outputs.
 
 ## Derived Pricing Schema
 

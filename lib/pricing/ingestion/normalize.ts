@@ -75,7 +75,8 @@ export function normalizeConditionScale(
       /折れ/,
       /破れ/,
       /欠け/,
-      /水濡れ/
+      /水濡れ/,
+      /状態c/
     ])
   ) {
     return "damaged";
@@ -84,7 +85,7 @@ export function normalizeConditionScale(
   if (
     matchesAny(normalized, [
       /\b(moderate play|mp)\b/,
-      /状態c/,
+      /状態b/,
       /moderately played/
     ])
   ) {
@@ -94,7 +95,6 @@ export function normalizeConditionScale(
   if (
     matchesAny(normalized, [
       /\b(light play|lp)\b/,
-      /状態b/,
       /played/,
       /minor scratch/,
       /slight/

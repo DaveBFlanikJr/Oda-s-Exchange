@@ -18,6 +18,33 @@ export type PriceIngestionSourcePolicyRecord = {
   lastReviewedAt: string | null;
 };
 
+export type PriceIngestionSourceComplianceRecordRow = {
+  id: string;
+  source: MarketSourceId;
+  policy_url: string;
+  permission_status: PriceIngestionSourcePolicyStatus;
+  allowed_collection_method: PriceIngestionCollectionMethod;
+  collection_frequency_minutes: number | null;
+  rate_limit_note: string;
+  scheduled_collection_enabled: boolean;
+  last_reviewed_at: string;
+  review_notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PriceIngestionSourceComplianceRecordInsert = {
+  source: MarketSourceId;
+  policy_url: string;
+  permission_status?: PriceIngestionSourcePolicyStatus;
+  allowed_collection_method?: PriceIngestionCollectionMethod;
+  collection_frequency_minutes?: number | null;
+  rate_limit_note?: string;
+  scheduled_collection_enabled?: boolean;
+  last_reviewed_at?: string;
+  review_notes?: string;
+};
+
 export type PriceIngestionRawObservation = {
   source: MarketSourceId;
   sourceListingId: string;
@@ -47,4 +74,51 @@ export type PriceIngestionCanonicalPrice = {
   priceJpy: number;
   observedAt: string;
   rawObservationId: string | null;
+};
+
+export type PriceIngestionRawPriceObservationRow = {
+  id: string;
+  source: MarketSourceId;
+  source_listing_id: string;
+  source_url: string;
+  observed_at: string;
+  parser_version: string;
+  normalized_card_code: string;
+  source_variant_key: string | null;
+  raw_title: string | null;
+  raw_condition: string | null;
+  normalized_condition: PriceIngestionConditionScale;
+  raw_price_text: string | null;
+  price_jpy: number | null;
+  availability_status: AvailabilityStatus;
+  listing_kind: PriceIngestionListingKind;
+  raw_text_snapshot: string | null;
+  snapshot_ref: string;
+  excluded_reason: string | null;
+  match_confidence: PriceIngestionMatchConfidence;
+  matched_variant_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PriceIngestionRawPriceObservationInsert = {
+  source: MarketSourceId;
+  source_listing_id: string;
+  source_url: string;
+  observed_at?: string;
+  parser_version: string;
+  normalized_card_code: string;
+  source_variant_key?: string | null;
+  raw_title?: string | null;
+  raw_condition?: string | null;
+  normalized_condition?: PriceIngestionConditionScale;
+  raw_price_text?: string | null;
+  price_jpy?: number | null;
+  availability_status?: AvailabilityStatus;
+  listing_kind?: PriceIngestionListingKind;
+  raw_text_snapshot?: string | null;
+  snapshot_ref: string;
+  excluded_reason?: string | null;
+  match_confidence?: PriceIngestionMatchConfidence;
+  matched_variant_id?: string | null;
 };
