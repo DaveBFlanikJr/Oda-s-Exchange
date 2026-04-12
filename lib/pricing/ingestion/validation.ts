@@ -41,6 +41,12 @@ function isIntegerLike(value: unknown) {
   return typeof value === "number" && Number.isInteger(value);
 }
 
+function isJsonLikeValue(
+  value: unknown
+): value is Record<string, unknown> | readonly unknown[] {
+  return value !== null && typeof value === "object";
+}
+
 function isValidIsoDate(value: string) {
   return ISO_DATE_PATTERN.test(value) && !Number.isNaN(Date.parse(value));
 }
@@ -217,6 +223,18 @@ export function validateRawPriceObservationInsert(
       issues,
       "raw_text_snapshot",
       "raw_text_snapshot must be 8192 characters or less"
+    );
+  }
+
+  if (
+    record.normalized_parse_output !== undefined &&
+    record.normalized_parse_output !== null &&
+    !isJsonLikeValue(record.normalized_parse_output)
+  ) {
+    pushIssue(
+      issues,
+      "normalized_parse_output",
+      "normalized_parse_output must be an object, array, null, or undefined"
     );
   }
 

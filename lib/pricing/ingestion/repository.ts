@@ -19,7 +19,7 @@ const SOURCE_COMPLIANCE_RECORD_COLUMNS =
   "id, source, policy_url, permission_status, allowed_collection_method, collection_frequency_minutes, rate_limit_note, scheduled_collection_enabled, last_reviewed_at, review_notes, created_at, updated_at";
 
 const RAW_PRICE_OBSERVATION_COLUMNS =
-  "id, source, source_listing_id, source_url, observed_at, parser_version, normalized_card_code, source_variant_key, raw_title, raw_condition, normalized_condition, raw_price_text, price_jpy, availability_status, listing_kind, raw_text_snapshot, snapshot_ref, excluded_reason, match_confidence, matched_variant_id, created_at, updated_at";
+  "id, source, source_listing_id, source_url, observed_at, parser_version, normalized_card_code, source_variant_key, raw_title, raw_condition, normalized_condition, raw_price_text, price_jpy, availability_status, listing_kind, normalized_parse_output, raw_text_snapshot, snapshot_ref, excluded_reason, match_confidence, matched_variant_id, created_at, updated_at";
 
 function compactDefinedEntries<T extends Record<string, unknown>>(value: T) {
   return Object.fromEntries(

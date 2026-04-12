@@ -9,6 +9,10 @@
 - [x] Successfully connected to Supabase Postgres
 - [ ] Successfully queried `public.cards`
 - [ ] Verified returned schema against the shared `Card` interface
+- [x] Added DB smoke coverage for raw price observation storage
+- [x] Added DB smoke coverage for canonical price insertion
+- [x] Included a sold-out raw observation case with `price_jpy = null`
+- [x] Kept the smoke test transaction-scoped with rollback
 
 ## Current Blocker
 

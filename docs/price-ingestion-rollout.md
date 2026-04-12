@@ -41,6 +41,7 @@ Recommended fields:
 - `price_jpy`
 - `availability_status`
 - `listing_kind`
+- `normalized_parse_output`
 - `raw_text_snapshot`
 - `snapshot_ref`
 - `excluded_reason`
@@ -48,10 +49,11 @@ Recommended fields:
 - `matched_variant_id`
 
 The snapshot should stay minimal and scoped to the evidence needed for audits and parser fixtures.
+Normalized parser output should carry the structured parse summary needed to reproduce condition, variant-treatment, listing-kind, and exclusion decisions without storing a larger raw page snapshot.
 
 ## Canonical Derivation
 
-The current UI contract expects latest available rows per source/day, then a cross-source reduction. That basis must be made explicit before ingestion so condition noise, graded listings, proxy listings, and deck products do not leak into the canonical market price.
+The default UI contract is `daily_best_available_ungraded_best_condition_jst`: eligible raw observations are grouped by variant, source, and JST day, source/day candidates prefer the best ungraded condition bucket, and the canonical day price is the minimum across eligible source/day values. Damaged, graded, proxy/custom, sealed-only, deck-product, and ambiguous observations stay out of this default basis unless a separate product decision defines how to show them.
 
 Recommended guardrails:
 
@@ -59,6 +61,7 @@ Recommended guardrails:
 - record condition as part of the derivation basis
 - reject low-confidence matches from canonical writes
 - keep ambiguous matches available for review, not automatic publication
+- keep noisy peer-to-peer sources separate from the canonical lowest-price chart until median or trimmed-median semantics are chosen
 
 ## Fixture Rollout
 

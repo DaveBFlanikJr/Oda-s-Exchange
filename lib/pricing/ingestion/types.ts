@@ -76,6 +76,10 @@ export type PriceIngestionCanonicalPrice = {
   rawObservationId: string | null;
 };
 
+export type PriceIngestionNormalizedParseOutput =
+  | Record<string, unknown>
+  | readonly unknown[];
+
 export type PriceIngestionRawPriceObservationRow = {
   id: string;
   source: MarketSourceId;
@@ -92,6 +96,7 @@ export type PriceIngestionRawPriceObservationRow = {
   price_jpy: number | null;
   availability_status: AvailabilityStatus;
   listing_kind: PriceIngestionListingKind;
+  normalized_parse_output: PriceIngestionNormalizedParseOutput | null;
   raw_text_snapshot: string | null;
   snapshot_ref: string;
   excluded_reason: string | null;
@@ -116,6 +121,7 @@ export type PriceIngestionRawPriceObservationInsert = {
   price_jpy?: number | null;
   availability_status?: AvailabilityStatus;
   listing_kind?: PriceIngestionListingKind;
+  normalized_parse_output?: PriceIngestionNormalizedParseOutput | null;
   raw_text_snapshot?: string | null;
   snapshot_ref: string;
   excluded_reason?: string | null;

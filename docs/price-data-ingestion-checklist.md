@@ -25,7 +25,7 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 
 - [x] Add a raw observation table before writing new source data into `price_history`.
 - [x] Retain enough evidence to debug bad matches later: `source`, `source_listing_id`, `source_url`, `observed_at`, `parser_version`, `normalized_card_code`, `raw_title`, `raw_condition`, `raw_price_text`, `price_jpy`, `availability_status`, `listing_kind`, `raw_text_snapshot`, `snapshot_ref`, `excluded_reason`, `match_confidence`, and `matched_variant_id`.
-- [ ] Store normalized parse output, not just a hash.
+- [x] Store normalized parse output, not just a hash.
 - [ ] Keep durable snapshot references for manually approved fixtures and any future authorized feeds.
 - [x] Do not write low-confidence or excluded raw observations into canonical pricing outputs.
 
@@ -39,12 +39,12 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 
 ## Canonical Price Semantics
 
-- [ ] Reconcile the current `daily_best_available_jst` contract before ingestion changes.
-- [ ] Define the canonical basis in one place, for example `daily_best_available_ungraded_best_condition_jst`.
-- [ ] Exclude damaged, graded, proxy/custom, sealed-only, deck-product, and ambiguous listings from default canonical UI pricing unless a product decision says otherwise.
-- [ ] For retailer sources, prefer the best available ungraded condition bucket instead of the naive lowest listing.
-- [ ] For noisy peer-to-peer sources, decide whether to use median, trimmed median, or a separate marketplace signal that does not feed the canonical lowest-price chart.
-- [ ] Update `docs/card-detail-v2.md`, `lib/card-detail/series.ts`, and any API contracts after the canonical basis is chosen.
+- [x] Reconcile the current `daily_best_available_jst` contract before ingestion changes.
+- [x] Define the canonical basis in one place, for example `daily_best_available_ungraded_best_condition_jst`.
+- [x] Exclude damaged, graded, proxy/custom, sealed-only, deck-product, and ambiguous listings from default canonical UI pricing unless a product decision says otherwise.
+- [x] For retailer sources, prefer the best available ungraded condition bucket instead of the naive lowest listing.
+- [x] For noisy peer-to-peer sources, decide whether to use median, trimmed median, or a separate marketplace signal that does not feed the canonical lowest-price chart.
+- [ ] Update `lib/card-detail/series.ts` and any API contracts after derived canonical writes land.
 
 ## Variant Identity Audit
 
@@ -90,12 +90,12 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 ## Verification
 
 - [ ] Add schema tests for raw observation storage.
-- [ ] Add a DB smoke test that inserts one valid available canonical price row.
-- [ ] Add a DB smoke test that inserts one valid sold-out raw observation.
+- [x] Add a DB smoke test that inserts one valid available canonical price row.
+- [x] Add a DB smoke test that inserts one valid sold-out raw observation.
 - [ ] Add a test proving valid canonical rows produce non-empty card-detail `marketListings`.
-- [ ] Add fixture-based parser tests that can consume `tests/fixtures/price-ingestion/eb02-061-cases.json`.
-- [ ] Cover manga, alt-art, mint, damaged, graded, sold-out, deck-product, and ambiguous examples in the fixture set.
-- [ ] Update stale DB smoke SQL so it matches the current `cards` schema.
+- [x] Add fixture-based parser tests that can consume `tests/fixtures/price-ingestion/eb02-061-cases.json`.
+- [x] Cover manga, alt-art, mint, damaged, graded, sold-out, deck-product, and ambiguous examples in the fixture set.
+- [x] Update stale DB smoke SQL so it matches the current `cards` schema.
 - [ ] Confirm GitHub repository secrets exist before relying on scheduled collection.
 
 ## Foundation Docs

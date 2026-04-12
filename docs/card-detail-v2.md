@@ -77,14 +77,21 @@ Internal lookup failures are tracked with these codes:
 
 The canonical pricing basis is:
 
-- `daily_best_available_jst`
+- `daily_best_available_ungraded_best_condition_jst`
 
 Rules:
 
 - Timezone is `Asia/Tokyo`.
 - Data is bucketed by JST calendar day.
-- For each source and day, the latest valid available row wins.
+- Canonical rows must be linked back to raw observation evidence or authorized feed evidence.
+- For each source, variant, and day, only eligible ungraded single-card observations can contribute.
+- Damaged, graded, proxy/custom, sealed-only, deck-product, and ambiguous observations are excluded from default canonical UI pricing unless a later product decision creates a separate basis for them.
+- For retailer sources, prefer the best available ungraded condition bucket for the source/day instead of using the naive lowest listing.
 - For each JST day, the canonical day price is the minimum of those source-day values.
+
+The older `daily_best_available_jst` rule remains a legacy description of how existing `price_history` rows are aggregated once they are already trusted canonical rows. New ingestion work should not write raw or condition-mixed observations directly into `price_history`; it should first store raw observations, derive the condition-aware canonical basis, and then publish only canonical points to the UI-facing series.
+
+Noisy peer-to-peer sources such as Mercari JP must not feed the default lowest-price chart until their basis is defined. Use a separate marketplace signal, median, or trimmed-median rule only after that contract is documented and implemented.
 
 This canonical series drives:
 
