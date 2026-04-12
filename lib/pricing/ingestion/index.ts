@@ -26,3 +26,44 @@ export {
   normalizeListingKind,
   normalizeSourcePolicyStatus
 } from "./normalize";
+
+export {
+  getLatestRawPriceObservationForSourceListing,
+  getSourceComplianceRecordBySource,
+  getPriceIngestionAdminSupabaseClient,
+  insertRawPriceObservation,
+  insertRawPriceObservations,
+  listRawPriceObservationsForVariant,
+  listSourceComplianceRecords,
+  upsertSourceComplianceRecord
+} from "./repository";
+
+export type {
+  PriceIngestionAdminSupabaseClient
+} from "./repository";
+
+export type {
+  PriceIngestionRawPriceObservationInsert,
+  PriceIngestionRawPriceObservationRow,
+  PriceIngestionSourceComplianceRecordInsert,
+  PriceIngestionSourceComplianceRecordRow
+} from "./types";
+
+export {
+  assertRawPriceObservationInsert,
+  assertSourceComplianceRecordInsert,
+  validateRawPriceObservationInsert,
+  validateSourceComplianceRecordInsert,
+  type PriceIngestionValidationIssue
+} from "./validation";
+
+export type {
+  PriceIngestionCanonicalCandidate,
+  PriceIngestionCanonicalCandidateInput,
+  PriceIngestionRawObservationInput
+} from "./derive";
+
+export {
+  deriveCanonicalPriceCandidate,
+  deriveCanonicalPriceCandidates
+} from "./derive";
