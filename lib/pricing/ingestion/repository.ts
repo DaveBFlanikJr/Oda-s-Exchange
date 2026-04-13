@@ -1,15 +1,22 @@
 import { getAdminSupabaseClient } from "@/lib/supabase/admin-client";
 import type {
+  PriceIngestionCanonicalPricePointInsert,
+  PriceIngestionCanonicalPricePointRow,
   PriceIngestionRawPriceObservationInsert,
   PriceIngestionRawPriceObservationRow,
   PriceIngestionSourceComplianceRecordInsert,
   PriceIngestionSourceComplianceRecordRow
 } from "@/lib/pricing/ingestion/types";
 import {
+  assertCanonicalPricePointInsert,
   assertRawPriceObservationInsert,
   assertSourceComplianceRecordInsert
 } from "@/lib/pricing/ingestion/validation";
 import type { MarketSourceId } from "@/lib/types/market";
+import {
+  PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS,
+  type PriceIngestionCanonicalPricingBasis
+} from "@/lib/pricing/ingestion/constants";
 
 export type PriceIngestionAdminSupabaseClient = ReturnType<
   typeof getAdminSupabaseClient
@@ -21,10 +28,23 @@ const SOURCE_COMPLIANCE_RECORD_COLUMNS =
 const RAW_PRICE_OBSERVATION_COLUMNS =
   "id, source, source_listing_id, source_url, observed_at, parser_version, normalized_card_code, source_variant_key, raw_title, raw_condition, normalized_condition, raw_price_text, price_jpy, availability_status, listing_kind, normalized_parse_output, raw_text_snapshot, snapshot_ref, excluded_reason, match_confidence, matched_variant_id, created_at, updated_at";
 
+const CANONICAL_PRICE_POINT_COLUMNS =
+  "id, variant_id, source, source_day_jst, pricing_basis, condition_scale, price_jpy, observed_at, evidence_kind, raw_observation_id, evidence_ref, selection_rank, selection_reason, derivation_version, created_at, updated_at";
+
 function compactDefinedEntries<T extends Record<string, unknown>>(value: T) {
   return Object.fromEntries(
     Object.entries(value).filter(([, entry]) => entry !== undefined)
   ) as T;
+}
+
+function withCanonicalPricePointDefaults(
+  record: PriceIngestionCanonicalPricePointInsert
+) {
+  return {
+    pricing_basis: PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS,
+    evidence_kind: "raw_observation" as const,
+    ...record
+  };
 }
 
 export function getPriceIngestionAdminSupabaseClient() {
@@ -135,6 +155,86 @@ export async function insertRawPriceObservations(
   return (data as PriceIngestionRawPriceObservationRow[]) ?? [];
 }
 
+export async function insertCanonicalPricePoint(
+  record: PriceIngestionCanonicalPricePointInsert,
+  supabase: PriceIngestionAdminSupabaseClient = getPriceIngestionAdminSupabaseClient()
+) {
+  const recordWithDefaults = withCanonicalPricePointDefaults(record);
+  assertCanonicalPricePointInsert(recordWithDefaults);
+
+  const { data, error } = await supabase
+    .from("canonical_price_points")
+    .insert(compactDefinedEntries(recordWithDefaults))
+    .select(CANONICAL_PRICE_POINT_COLUMNS)
+    .single();
+
+  if (error) {
+    throw new Error(
+      formatSupabaseError("insert canonical price point", error.message)
+    );
+  }
+
+  return data as PriceIngestionCanonicalPricePointRow;
+}
+
+export async function insertCanonicalPricePoints(
+  records: readonly PriceIngestionCanonicalPricePointInsert[],
+  supabase: PriceIngestionAdminSupabaseClient = getPriceIngestionAdminSupabaseClient()
+) {
+  const recordsWithDefaults = records.map(withCanonicalPricePointDefaults);
+
+  for (const record of recordsWithDefaults) {
+    assertCanonicalPricePointInsert(record);
+  }
+
+  if (recordsWithDefaults.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("canonical_price_points")
+    .insert(recordsWithDefaults.map((record) => compactDefinedEntries(record)))
+    .select(CANONICAL_PRICE_POINT_COLUMNS);
+
+  if (error) {
+    throw new Error(
+      formatSupabaseError("insert canonical price points", error.message)
+    );
+  }
+
+  return (data as PriceIngestionCanonicalPricePointRow[]) ?? [];
+}
+
+export async function upsertCanonicalPricePoints(
+  records: readonly PriceIngestionCanonicalPricePointInsert[],
+  supabase: PriceIngestionAdminSupabaseClient = getPriceIngestionAdminSupabaseClient()
+) {
+  const recordsWithDefaults = records.map(withCanonicalPricePointDefaults);
+
+  for (const record of recordsWithDefaults) {
+    assertCanonicalPricePointInsert(record);
+  }
+
+  if (recordsWithDefaults.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("canonical_price_points")
+    .upsert(recordsWithDefaults.map((record) => compactDefinedEntries(record)), {
+      onConflict: "variant_id,source,source_day_jst,pricing_basis"
+    })
+    .select(CANONICAL_PRICE_POINT_COLUMNS);
+
+  if (error) {
+    throw new Error(
+      formatSupabaseError("upsert canonical price points", error.message)
+    );
+  }
+
+  return (data as PriceIngestionCanonicalPricePointRow[]) ?? [];
+}
+
 export async function getLatestRawPriceObservationForSourceListing(
   source: MarketSourceId,
   sourceListingId: string,
@@ -182,4 +282,48 @@ export async function listRawPriceObservationsForVariant(
   }
 
   return (data as PriceIngestionRawPriceObservationRow[]) ?? [];
+}
+
+export async function listCanonicalPricePointsForVariant(
+  variantId: string,
+  options: {
+    basis?: PriceIngestionCanonicalPricingBasis;
+    sourceDayFrom?: string;
+    sourceDayTo?: string;
+    limit?: number;
+    supabase?: PriceIngestionAdminSupabaseClient;
+  } = {}
+) {
+  const supabase = options.supabase ?? getPriceIngestionAdminSupabaseClient();
+  const limit = options.limit ?? 50;
+
+  let query = supabase
+    .from("canonical_price_points")
+    .select(CANONICAL_PRICE_POINT_COLUMNS)
+    .eq("variant_id", variantId);
+
+  if (options.basis) {
+    query = query.eq("pricing_basis", options.basis);
+  }
+
+  if (options.sourceDayFrom) {
+    query = query.gte("source_day_jst", options.sourceDayFrom);
+  }
+
+  if (options.sourceDayTo) {
+    query = query.lte("source_day_jst", options.sourceDayTo);
+  }
+
+  const { data, error } = await query
+    .order("source_day_jst", { ascending: false })
+    .order("source", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(
+      formatSupabaseError("list canonical price points for variant", error.message)
+    );
+  }
+
+  return (data as PriceIngestionCanonicalPricePointRow[]) ?? [];
 }

@@ -104,6 +104,34 @@ select
 from public.raw_price_observations
 limit 3;
 
+\echo 'Inspecting public.canonical_price_points columns'
+select
+  column_name,
+  data_type,
+  is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'canonical_price_points'
+order by ordinal_position;
+
+\echo 'Fetching sample rows from public.canonical_price_points'
+select
+  variant_id,
+  source,
+  source_day_jst,
+  pricing_basis,
+  condition_scale,
+  price_jpy,
+  observed_at,
+  evidence_kind,
+  raw_observation_id,
+  evidence_ref,
+  selection_rank,
+  selection_reason,
+  derivation_version
+from public.canonical_price_points
+limit 3;
+
 \echo 'Inspecting public.price_history columns'
 select
   column_name,
@@ -188,6 +216,64 @@ returning
   price_jpy,
   normalized_parse_output,
   matched_variant_id;
+
+with available_raw_observation as (
+  select
+    id,
+    source,
+    observed_at,
+    normalized_condition,
+    price_jpy,
+    snapshot_ref,
+    matched_variant_id
+  from public.raw_price_observations
+  where source_listing_id = 'db-smoke-eb02-061-available'
+    and parser_version = 'db-smoke/1'
+  order by created_at desc
+  limit 1
+)
+insert into public.canonical_price_points (
+  variant_id,
+  source,
+  source_day_jst,
+  pricing_basis,
+  condition_scale,
+  price_jpy,
+  observed_at,
+  evidence_kind,
+  raw_observation_id,
+  evidence_ref,
+  selection_rank,
+  selection_reason,
+  derivation_version
+)
+select
+  raw.matched_variant_id,
+  raw.source,
+  (raw.observed_at at time zone 'Asia/Tokyo')::date,
+  'daily_best_available_ungraded_best_condition_jst',
+  raw.normalized_condition,
+  raw.price_jpy,
+  raw.observed_at,
+  'raw_observation',
+  raw.id,
+  raw.snapshot_ref,
+  1,
+  'db smoke canonical derived from raw observation',
+  'db-smoke/1'
+from available_raw_observation raw
+where raw.matched_variant_id is not null
+  and raw.price_jpy is not null
+returning
+  variant_id,
+  source,
+  source_day_jst,
+  pricing_basis,
+  condition_scale,
+  price_jpy,
+  evidence_kind,
+  raw_observation_id,
+  derivation_version;
 
 with target_variant as (
   select id
@@ -311,6 +397,18 @@ where source_listing_id in (
   'db-smoke-eb02-061-available',
   'db-smoke-eb02-061-soldout'
 );
+
+select
+  count(*) as canonical_price_point_rows,
+  count(*) filter (
+    where pricing_basis = 'daily_best_available_ungraded_best_condition_jst'
+      and evidence_kind = 'raw_observation'
+      and raw_observation_id is not null
+      and price_jpy = 12345
+  ) as raw_linked_default_basis_rows
+from public.canonical_price_points
+where derivation_version = 'db-smoke/1'
+  and source_day_jst = date '2099-01-01';
 
 select
   count(*) as canonical_price_rows,

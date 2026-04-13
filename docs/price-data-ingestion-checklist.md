@@ -61,6 +61,7 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 - [ ] For Card Rush, use only manually captured fixtures until approval or authorized feed access exists.
 - [ ] Keep `reference.md` updated whenever a source URL, selector, availability marker, or permission status changes.
 - [ ] Persist sold-out and error observations as raw observations with `price_jpy = null`.
+- [ ] Before derived canonical publishing lands, disable or reroute the stale `scripts/scrape/index.ts` path so it cannot write directly to `price_history` and bypass the raw-to-derived boundary.
 
 ## Variant Matching
 
