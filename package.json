@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "backfill:images": "tsx scripts/seed/backfill-images.ts",
     "seed:english-names": "tsx scripts/seed/update-english-names.ts",
+    "seed:repair-english-names": "tsx scripts/seed/repair-english-names.ts",
     "seed:punk-records": "tsx scripts/seed/punk-records.ts",
     "test:price-ingestion": "node --import tsx scripts/price-ingestion/validate-fixtures.ts",
     "test:db:cards": "bash tests/db/run-card-smoke.sh",

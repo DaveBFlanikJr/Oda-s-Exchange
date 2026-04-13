@@ -9,8 +9,8 @@ import { isKnownMangaRare } from "./manga-rare-allowlist";
 
 const PUNK_RECORDS_INDEX_URL =
   "https://raw.githubusercontent.com/buhbbl/punk-records/main/japanese/index/cards_by_id.json";
-const ENGLISH_CARDS_BASE_URL =
-  "https://raw.githubusercontent.com/buhbbl/punk-records/main/english/cards";
+const ENGLISH_INDEX_URL =
+  "https://raw.githubusercontent.com/buhbbl/punk-records/main/english/index/cards_by_id.json";
 const JAPANESE_CARDS_BASE_URL =
   "https://raw.githubusercontent.com/buhbbl/punk-records/main/japanese/cards";
 const BATCH_SIZE = 50;
@@ -21,6 +21,16 @@ type SupportedPrefix = "OP" | "ST" | "P" | "EB" | "PRB";
 type CardType = CreateCard["card_type"];
 type VariantSuffix = NonNullable<CreateCardVariant["variant_type"]>;
 type RawRecord = Record<string, unknown>;
+type ExistingCardRecord = Pick<
+  CreateCard,
+  "id" | "name_en" | "name_jp" | "text_en" | "text_jp"
+>;
+type SourceRecords = {
+  japaneseIndexRecord: RawRecord;
+  japaneseDetailRecord: RawRecord | null;
+  englishIndexRecord: RawRecord | null;
+  existingCard: ExistingCardRecord | null;
+};
 
 const VARIANT_SUFFIX_MAP: Array<{ match: RegExp; suffix: VariantSuffix }> = [
   { match: /\bmanga\b/i, suffix: "M" },
@@ -47,13 +57,23 @@ async function main() {
 
   const supabase = createAdminClient();
   const records = await fetchJapaneseIndexRecords();
+  const englishRecordsById = await fetchEnglishIndexRecordMap();
 
   let processed = 0;
   let failed = 0;
 
   for (const chunk of chunked(records, BATCH_SIZE)) {
+    const existingCardsById = await fetchExistingCardsById(
+      supabase,
+      chunk
+        .map((record) => normalizeId(getRawId(record)))
+        .filter((id): id is string => Boolean(id))
+    );
+
     const results = await Promise.allSettled(
-      chunk.map((record) => seedRecord(supabase, record))
+      chunk.map((record) =>
+        seedRecord(supabase, record, englishRecordsById, existingCardsById)
+      )
     );
 
     for (const result of results) {
@@ -90,17 +110,92 @@ async function fetchJapaneseIndexRecords() {
     .map(([id, value]) => ({ id, ...(value as RawRecord) }));
 }
 
-async function seedRecord(supabase: SupabaseClient, raw: RawRecord) {
-  const normalizedId = normalizeId(getRawId(raw));
+async function fetchEnglishIndexRecordMap() {
+  const response = await axios.get<unknown>(ENGLISH_INDEX_URL, {
+    timeout: 20_000,
+    headers: {
+      "User-Agent": "OPTCG-Japan-Tracker-Seed/0.1"
+    }
+  });
+
+  if (!isRawRecord(response.data)) {
+    throw new Error("English cards_by_id index did not return an object.");
+  }
+
+  const recordsById = new Map<string, RawRecord>();
+
+  for (const [id, value] of Object.entries(response.data)) {
+    if (!isRawRecord(value)) {
+      continue;
+    }
+
+    const record = { id, ...value };
+    const normalizedId = normalizeId(getRawId(record));
+    if (normalizedId) {
+      recordsById.set(normalizedId, record);
+    }
+  }
+
+  return recordsById;
+}
+
+async function fetchExistingCardsById(
+  supabase: SupabaseClient,
+  ids: readonly string[]
+) {
+  const uniqueIds = Array.from(new Set(ids));
+  const cardsById = new Map<string, ExistingCardRecord>();
+
+  if (uniqueIds.length === 0) {
+    return cardsById;
+  }
+
+  const { data, error } = await withRetry(
+    () =>
+      supabase
+        .from("cards")
+        .select("id, name_en, name_jp, text_en, text_jp")
+        .in("id", uniqueIds),
+    "cards existing lookup"
+  );
+
+  if (error) {
+    throw new Error(`cards existing lookup failed: ${error.message}`);
+  }
+
+  for (const row of (data ?? []) as ExistingCardRecord[]) {
+    cardsById.set(row.id, row);
+  }
+
+  return cardsById;
+}
+
+async function seedRecord(
+  supabase: SupabaseClient,
+  japaneseIndexRecord: RawRecord,
+  englishRecordsById: ReadonlyMap<string, RawRecord>,
+  existingCardsById: ReadonlyMap<string, ExistingCardRecord>
+) {
+  const normalizedId = normalizeId(getRawId(japaneseIndexRecord));
 
   if (!normalizedId) {
-    console.error(`[seed:normalize] could not normalize id from record: ${JSON.stringify(raw)}`);
+    console.error(`[seed:normalize] could not normalize id from record: ${JSON.stringify(japaneseIndexRecord)}`);
     return "skipped";
   }
 
-  const detailedRaw = await fetchDetailedRecord(raw);
-  const mergedRaw = mergeSeedRecords(raw, detailedRaw);
-  const card = buildCardPayload(mergedRaw, normalizedId);
+  const englishIndexRecord = englishRecordsById.get(normalizedId) ?? null;
+  const japaneseDetailRecord = await fetchDetailedRecord(
+    JAPANESE_CARDS_BASE_URL,
+    japaneseIndexRecord
+  );
+  const sourceRecords: SourceRecords = {
+    japaneseIndexRecord,
+    japaneseDetailRecord,
+    englishIndexRecord,
+    existingCard: existingCardsById.get(normalizedId) ?? null
+  };
+  const metadataRaw = mergeSeedRecords(japaneseIndexRecord, japaneseDetailRecord);
+  const card = buildCardPayload(sourceRecords, metadataRaw, normalizedId);
 
   const { error: cardError } = await withRetry(
     () =>
@@ -114,7 +209,7 @@ async function seedRecord(supabase: SupabaseClient, raw: RawRecord) {
     throw new Error(`cards upsert failed for ${normalizedId}: ${cardError.message}`);
   }
 
-  const variants = buildVariantPayloads(mergedRaw, card);
+  const variants = buildVariantPayloads(metadataRaw, card);
 
   const { error: variantError } = await withRetry(
     () =>
@@ -133,7 +228,7 @@ async function seedRecord(supabase: SupabaseClient, raw: RawRecord) {
   return "seeded";
 }
 
-async function fetchDetailedRecord(raw: RawRecord) {
+async function fetchDetailedRecord(baseUrl: string, raw: RawRecord) {
   const packId = getFirstString(raw, ["pack_id"]);
   const rawId = getRawId(raw);
 
@@ -141,26 +236,19 @@ async function fetchDetailedRecord(raw: RawRecord) {
     return null;
   }
 
-  const candidateUrls = [
-    `${ENGLISH_CARDS_BASE_URL}/${packId}/${rawId}.json`,
-    `${JAPANESE_CARDS_BASE_URL}/${packId}/${rawId}.json`
-  ];
-
-  for (const url of candidateUrls) {
-    try {
-      const response = await axios.get<unknown>(url, {
-        timeout: 20_000,
-        headers: {
-          "User-Agent": "OPTCG-Japan-Tracker-Seed/0.1"
-        }
-      });
-
-      if (isRawRecord(response.data)) {
-        return response.data;
+  try {
+    const response = await axios.get<unknown>(`${baseUrl}/${packId}/${rawId}.json`, {
+      timeout: 20_000,
+      headers: {
+        "User-Agent": "OPTCG-Japan-Tracker-Seed/0.1"
       }
-    } catch {
-      continue;
+    });
+
+    if (isRawRecord(response.data)) {
+      return response.data;
     }
+  } catch {
+    return null;
   }
 
   return null;
@@ -264,37 +352,58 @@ function formatNormalizedId(prefix: string, setPart: string | null, cardPart: st
   return `${normalizedPrefix}-${normalizedCard}`;
 }
 
-function buildCardPayload(raw: RawRecord, normalizedId: string): CreateCard {
-  const inferredCardType = inferCardType(raw, normalizedId);
+function buildCardPayload(
+  sourceRecords: SourceRecords,
+  metadataRaw: RawRecord,
+  normalizedId: string
+): CreateCard {
+  const {
+    japaneseIndexRecord,
+    japaneseDetailRecord,
+    englishIndexRecord,
+    existingCard
+  } = sourceRecords;
+  const japaneseRaw = mergeSeedRecords(japaneseIndexRecord, japaneseDetailRecord);
+  const englishRaw = englishIndexRecord ?? {};
+  const inferredCardType = inferCardType(metadataRaw, normalizedId);
   const nameEn =
-    getFirstString(raw, ["name_en", "name", "englishName", "en_name"]) ??
+    getFirstString(englishRaw, ["name_en", "englishName", "en_name", "name"]) ??
+    existingCard?.name_en ??
     normalizedId;
   const nameJp =
-    getFirstString(raw, ["name_jp", "jp_name", "japaneseName", "ja_name"]) ?? nameEn;
-  const attributes = getStringArray(raw, ["attributes"]);
-  const colors = getStringArray(raw, ["colors"]);
+    getFirstString(japaneseRaw, ["name_jp", "jp_name", "japaneseName", "ja_name", "name"]) ??
+    existingCard?.name_jp ??
+    null;
+  const attributes = getStringArray(metadataRaw, ["attributes"]);
+  const colors = getStringArray(metadataRaw, ["colors"]);
   const rarityBase = normalizeBaseRarity(
-    getFirstString(raw, ["rarity_base", "rarity", "base_rarity"])
+    getFirstString(metadataRaw, ["rarity_base", "rarity", "base_rarity"])
   );
 
   return {
     id: normalizedId,
     card_set_id:
-      normalizeSetId(getFirstString(raw, ["pack_id", "card_set_id", "set_id"])) ??
+      normalizeSetId(getFirstString(metadataRaw, ["pack_id", "card_set_id", "set_id"])) ??
       deriveCardSetId(normalizedId),
     name_en: nameEn,
     name_jp: nameJp,
     card_type: inferredCardType,
     ...(rarityBase ? { rarity_base: rarityBase } : {}),
     attribute:
-      getFirstString(raw, ["attribute"]) ?? attributes[0] ?? null,
-    color: getFirstString(raw, ["color"]) ?? (colors.join("/") || null),
-    cost: parseNullableInteger(raw.cost),
-    power: parseNullableInteger(raw.power),
-    counter: parseNullableInteger(raw.counter),
-    sub_types: extractSubTypes(raw),
-    text_en: getFirstString(raw, ["text_en", "effect_en", "card_text_en", "text"]),
-    text_jp: getFirstString(raw, ["text_jp", "effect_jp", "card_text_jp"]),
+      getFirstString(metadataRaw, ["attribute"]) ?? attributes[0] ?? null,
+    color: getFirstString(metadataRaw, ["color"]) ?? (colors.join("/") || null),
+    cost: parseNullableInteger(metadataRaw.cost),
+    power: parseNullableInteger(metadataRaw.power),
+    counter: parseNullableInteger(metadataRaw.counter),
+    sub_types: extractSubTypes(metadataRaw),
+    text_en:
+      getFirstString(englishRaw, ["text_en", "effect_en", "card_text_en", "text"]) ??
+      existingCard?.text_en ??
+      null,
+    text_jp:
+      getFirstString(japaneseRaw, ["text_jp", "effect_jp", "card_text_jp", "text"]) ??
+      existingCard?.text_jp ??
+      null,
   };
 }
 
