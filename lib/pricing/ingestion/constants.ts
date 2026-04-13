@@ -68,4 +68,4 @@ export type PriceIngestionCanonicalPricingBasis =
   (typeof PRICE_INGESTION_CANONICAL_PRICING_BASES)[number];
 
 export const PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS =
-  "daily_best_available_jst" as const;
+  "daily_best_available_ungraded_best_condition_jst" as const;

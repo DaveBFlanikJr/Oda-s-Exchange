@@ -53,7 +53,7 @@ Normalized parser output should carry the structured parse summary needed to rep
 
 ## Canonical Derivation
 
-The default UI contract is `daily_best_available_ungraded_best_condition_jst`: eligible raw observations are grouped by variant, source, and JST day, source/day candidates prefer the best ungraded condition bucket, and the canonical day price is the minimum across eligible source/day values. Damaged, graded, proxy/custom, sealed-only, deck-product, and ambiguous observations stay out of this default basis unless a separate product decision defines how to show them.
+The target canonical ingestion contract is `daily_best_available_ungraded_best_condition_jst`: eligible raw observations are grouped by variant, source, and JST day, source/day candidates prefer the best ungraded condition bucket, and the canonical day price is the minimum across eligible source/day values. Damaged, graded, proxy/custom, sealed-only, deck-product, and ambiguous observations stay out of this default basis unless a separate product decision defines how to show them. Current card-detail overview and chart reads still use the legacy `price_history` aggregation until derived canonical writes land.
 
 Recommended guardrails:
 

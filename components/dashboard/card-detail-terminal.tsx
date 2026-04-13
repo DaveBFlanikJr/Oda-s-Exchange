@@ -15,6 +15,7 @@ import {
 } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
+import { CARD_DETAIL_LEGACY_PRICE_HISTORY_BASIS } from "@/lib/card-detail/constants";
 import { formatCurrency, formatJPY } from "@/lib/pricing";
 import type { CardDetailResponse } from "@/lib/card-detail/detail";
 import type { VariantType } from "@/lib/types/cards";
@@ -57,7 +58,7 @@ export function CardDetailTerminal({
       }
     },
     meta: {
-      pricingBasis: data.overview?.meta?.pricingBasis ?? "daily_best_available_jst",
+      pricingBasis: data.overview?.meta?.pricingBasis ?? CARD_DETAIL_LEGACY_PRICE_HISTORY_BASIS,
       comparisonStatus: data.overview?.meta?.comparisonStatus ?? "missing",
       freshnessAt: data.overview?.meta?.freshnessAt ?? null,
       truncated: data.overview?.meta?.truncated ?? false,
@@ -72,7 +73,7 @@ export function CardDetailTerminal({
     status: data.chart?.status ?? "empty",
     data: data.chart?.data ?? [],
     meta: {
-      pricingBasis: data.chart?.meta?.pricingBasis ?? "daily_best_available_jst",
+      pricingBasis: data.chart?.meta?.pricingBasis ?? CARD_DETAIL_LEGACY_PRICE_HISTORY_BASIS,
       freshnessAt: data.chart?.meta?.freshnessAt ?? null,
       truncated: data.chart?.meta?.truncated ?? false,
       simulated: data.chart?.meta?.simulated ?? false,
@@ -147,7 +148,7 @@ export function CardDetailTerminal({
                     {formatMetricCurrency(data.overview.data.lastPriceJpy)}
                   </p>
                   <p className="panel-copy">
-                    {overview.meta.pricingBasis === "daily_best_available_jst"
+                    {overview.meta.pricingBasis === CARD_DETAIL_LEGACY_PRICE_HISTORY_BASIS
                       ? "Daily best available (JST)"
                       : "Pricing basis unavailable"}
                   </p>

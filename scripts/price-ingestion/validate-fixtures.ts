@@ -8,6 +8,11 @@ import {
   type ListingKind,
   type ListingParseSummary
 } from "@/lib/pricing/ingestion/classifier";
+import { PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS } from "@/lib/pricing/ingestion/constants";
+import {
+  deriveCanonicalPriceCandidates,
+  type PriceIngestionRawObservationInput
+} from "@/lib/pricing/ingestion/derive";
 
 type PriceIngestionFixtureCase = {
   id: string;
@@ -48,6 +53,26 @@ type ValidationSkip = {
   field: string;
   reason: string;
 };
+
+type RegressionIssue = {
+  scenario: string;
+  field: string;
+  expected: unknown;
+  actual: unknown;
+};
+
+type RegressionObservationOverrides =
+  Partial<PriceIngestionRawObservationInput> &
+  Pick<
+    PriceIngestionRawObservationInput,
+    | "sourceListingId"
+    | "observedAt"
+    | "conditionScale"
+    | "priceJpy"
+    | "availabilityStatus"
+    | "listingKind"
+    | "matchConfidence"
+  >;
 
 const fixturePath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -165,6 +190,200 @@ function isSkippedField(caseId: string, field: string) {
   return skipped.get(caseId)?.has(field) ?? false;
 }
 
+function buildRegressionObservation(
+  overrides: RegressionObservationOverrides
+): PriceIngestionRawObservationInput {
+  return {
+    source: "card_rush",
+    sourceListingId: overrides.sourceListingId,
+    sourceUrl: `https://example.invalid/listings/${overrides.sourceListingId}`,
+    observedAt: overrides.observedAt,
+    parserVersion: "price-ingestion.v1",
+    normalizedCardCode: "EB02-061",
+    rawTitle: `${overrides.sourceListingId} title`,
+    rawCondition: overrides.conditionScale,
+    rawPriceText: overrides.priceJpy === null ? null : `JPY ${overrides.priceJpy}`,
+    priceJpy: overrides.priceJpy,
+    availabilityStatus: overrides.availabilityStatus,
+    listingKind: overrides.listingKind,
+    conditionScale: overrides.conditionScale,
+    rawTextSnapshot: `${overrides.sourceListingId} snapshot`,
+    snapshotRef: `snapshot-${overrides.sourceListingId}`,
+    excludedReason: null,
+    matchConfidence: overrides.matchConfidence,
+    matchedVariantId: "variant-eb02-061-standard",
+    id: overrides.id ?? overrides.sourceListingId,
+    sourceVariantKey: overrides.sourceVariantKey ?? "STD"
+  };
+}
+
+function addRegressionIssue(
+  issues: RegressionIssue[],
+  scenario: string,
+  field: string,
+  expected: unknown,
+  actual: unknown
+) {
+  if (expected !== actual) {
+    issues.push({ scenario, field, expected, actual });
+  }
+}
+
+function runCanonicalBasisRegressionChecks() {
+  const issues: RegressionIssue[] = [];
+  const sameDayBase = "2024-04-01T00:00:00.000Z";
+  const excludedObservationOverrides: RegressionObservationOverrides[] = [
+    {
+      sourceListingId: "sold-out-row",
+      observedAt: sameDayBase,
+      conditionScale: "mint",
+      priceJpy: null,
+      availabilityStatus: "sold_out",
+      listingKind: "single_card",
+      matchConfidence: "high"
+    },
+    {
+      sourceListingId: "damaged-row",
+      observedAt: sameDayBase,
+      conditionScale: "damaged",
+      priceJpy: 420,
+      availabilityStatus: "available",
+      listingKind: "single_card",
+      matchConfidence: "high"
+    },
+    {
+      sourceListingId: "graded-row",
+      observedAt: sameDayBase,
+      conditionScale: "graded",
+      priceJpy: 2400,
+      availabilityStatus: "available",
+      listingKind: "graded_card",
+      matchConfidence: "high"
+    },
+    {
+      sourceListingId: "deck-row",
+      observedAt: sameDayBase,
+      conditionScale: "near_mint",
+      priceJpy: 300,
+      availabilityStatus: "available",
+      listingKind: "deck_product",
+      matchConfidence: "high"
+    },
+    {
+      sourceListingId: "proxy-row",
+      observedAt: sameDayBase,
+      conditionScale: "near_mint",
+      priceJpy: 300,
+      availabilityStatus: "available",
+      listingKind: "proxy_custom",
+      matchConfidence: "high"
+    },
+    {
+      sourceListingId: "ambiguous-row",
+      observedAt: sameDayBase,
+      conditionScale: "near_mint",
+      priceJpy: 300,
+      availabilityStatus: "available",
+      listingKind: "ambiguous",
+      matchConfidence: "high"
+    }
+  ];
+  const observations = [
+    buildRegressionObservation({
+      sourceListingId: "eligible-near-mint-newer",
+      observedAt: "2024-04-01T06:00:00.000Z",
+      conditionScale: "near_mint",
+      priceJpy: 980,
+      availabilityStatus: "available",
+      listingKind: "single_card",
+      matchConfidence: "high"
+    }),
+    buildRegressionObservation({
+      sourceListingId: "eligible-mint-older",
+      observedAt: "2024-04-01T02:00:00.000Z",
+      conditionScale: "mint",
+      priceJpy: 1180,
+      availabilityStatus: "available",
+      listingKind: "single_card",
+      matchConfidence: "high"
+    }),
+    ...excludedObservationOverrides.map((overrides) =>
+      buildRegressionObservation(overrides)
+    )
+  ];
+
+  const defaultCandidates = deriveCanonicalPriceCandidates({ observations });
+  const explicitNewCandidates = deriveCanonicalPriceCandidates({
+    observations,
+    basis: "daily_best_available_ungraded_best_condition_jst"
+  });
+  const legacyCandidates = deriveCanonicalPriceCandidates({
+    observations,
+    basis: "daily_best_available_jst"
+  });
+
+  addRegressionIssue(
+    issues,
+    "default basis",
+    "candidate_count",
+    1,
+    defaultCandidates.length
+  );
+  addRegressionIssue(
+    issues,
+    "default basis",
+    "selected_listing_id",
+    "eligible-mint-older",
+    defaultCandidates[0]?.observation.sourceListingId ?? null
+  );
+  addRegressionIssue(
+    issues,
+    "default basis",
+    "basis",
+    PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS,
+    defaultCandidates[0]?.basis ?? null
+  );
+  addRegressionIssue(
+    issues,
+    "default basis",
+    "selection_reason",
+    true,
+    defaultCandidates[0]?.selectionReason.includes(
+      PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS
+    ) ?? false
+  );
+  addRegressionIssue(
+    issues,
+    "default basis",
+    "matches_explicit_new_basis",
+    explicitNewCandidates[0]?.observation.sourceListingId ?? null,
+    defaultCandidates[0]?.observation.sourceListingId ?? null
+  );
+  addRegressionIssue(
+    issues,
+    "legacy basis",
+    "selected_listing_id",
+    "eligible-near-mint-newer",
+    legacyCandidates[0]?.observation.sourceListingId ?? null
+  );
+
+  for (const excludedOverrides of excludedObservationOverrides) {
+    const excludedOnlyCandidates = deriveCanonicalPriceCandidates({
+      observations: [buildRegressionObservation(excludedOverrides)]
+    });
+
+    addRegressionIssue(
+      issues,
+      "exclusions",
+      excludedOverrides.sourceListingId,
+      0,
+      excludedOnlyCandidates.length
+    );
+  }
+
+  return issues;
+}
+
 async function main() {
   const raw = await readFile(fixturePath, "utf8");
   const fixture = JSON.parse(raw) as PriceIngestionFixtureFile;
@@ -236,6 +455,7 @@ async function main() {
 
   const supportedIssues = issues.filter((issue) => !isSkippedField(issue.caseId, issue.field));
   const skippedIssues = issues.filter((issue) => isSkippedField(issue.caseId, issue.field));
+  const regressionIssues = runCanonicalBasisRegressionChecks();
 
   for (const skipped of skippedIssues) {
     skips.push({
@@ -246,28 +466,46 @@ async function main() {
   }
 
   if (supportedIssues.length === 0) {
-    console.log(
-      `Validated ${fixture.cases.length} fixture cases against current classifier helpers.`
-    );
+    if (regressionIssues.length === 0) {
+      console.log(
+        `Validated ${fixture.cases.length} fixture cases and canonical basis regression checks.`
+      );
 
-    if (skips.length > 0) {
-      console.log(`Skipped ${skips.length} unsupported expectation${skips.length === 1 ? "" : "s"}:`);
-      for (const skip of skips) {
-        console.log(`- ${skip.caseId} :: ${skip.field} (${skip.reason})`);
+      if (skips.length > 0) {
+        console.log(
+          `Skipped ${skips.length} unsupported expectation${skips.length === 1 ? "" : "s"}:`
+        );
+        for (const skip of skips) {
+          console.log(`- ${skip.caseId} :: ${skip.field} (${skip.reason})`);
+        }
       }
-    }
 
-    return;
+      return;
+    }
   }
 
-  console.error(
-    `Found ${supportedIssues.length} validation issue${supportedIssues.length === 1 ? "" : "s"}:`
-  );
-
-  for (const issue of supportedIssues) {
+  if (supportedIssues.length > 0) {
     console.error(
-      `- ${issue.caseId} :: ${issue.field} expected ${JSON.stringify(issue.expected)} got ${JSON.stringify(issue.actual)}`
+      `Found ${supportedIssues.length} validation issue${supportedIssues.length === 1 ? "" : "s"}:`
     );
+
+    for (const issue of supportedIssues) {
+      console.error(
+        `- ${issue.caseId} :: ${issue.field} expected ${JSON.stringify(issue.expected)} got ${JSON.stringify(issue.actual)}`
+      );
+    }
+  }
+
+  if (regressionIssues.length > 0) {
+    console.error(
+      `Found ${regressionIssues.length} canonical basis regression issue${regressionIssues.length === 1 ? "" : "s"}:`
+    );
+
+    for (const issue of regressionIssues) {
+      console.error(
+        `- ${issue.scenario} :: ${issue.field} expected ${JSON.stringify(issue.expected)} got ${JSON.stringify(issue.actual)}`
+      );
+    }
   }
 
   process.exitCode = 1;

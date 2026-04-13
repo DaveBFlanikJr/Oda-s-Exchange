@@ -39,7 +39,7 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 
 ## Canonical Price Semantics
 
-- [x] Reconcile the current `daily_best_available_jst` contract before ingestion changes.
+- [x] Reconcile the legacy `daily_best_available_jst` card-detail contract before switching consumers to the new ingestion basis.
 - [x] Define the canonical basis in one place, for example `daily_best_available_ungraded_best_condition_jst`.
 - [x] Exclude damaged, graded, proxy/custom, sealed-only, deck-product, and ambiguous listings from default canonical UI pricing unless a product decision says otherwise.
 - [x] For retailer sources, prefer the best available ungraded condition bucket instead of the naive lowest listing.

@@ -75,7 +75,7 @@ Internal lookup failures are tracked with these codes:
 
 ## Pricing Basis
 
-The canonical pricing basis is:
+The target canonical ingestion basis is:
 
 - `daily_best_available_ungraded_best_condition_jst`
 
@@ -89,7 +89,7 @@ Rules:
 - For retailer sources, prefer the best available ungraded condition bucket for the source/day instead of using the naive lowest listing.
 - For each JST day, the canonical day price is the minimum of those source-day values.
 
-The older `daily_best_available_jst` rule remains a legacy description of how existing `price_history` rows are aggregated once they are already trusted canonical rows. New ingestion work should not write raw or condition-mixed observations directly into `price_history`; it should first store raw observations, derive the condition-aware canonical basis, and then publish only canonical points to the UI-facing series.
+The older `daily_best_available_jst` rule remains the legacy description of how existing `price_history` rows are aggregated for card-detail today. New ingestion work should not write raw or condition-mixed observations directly into `price_history`; it should first store raw observations, derive the condition-aware canonical basis, and then publish only canonical points to the UI-facing series. Until derived canonical writes land, the card-detail overview and chart continue to read the legacy `price_history` series.
 
 Noisy peer-to-peer sources such as Mercari JP must not feed the default lowest-price chart until their basis is defined. Use a separate marketplace signal, median, or trimmed-median rule only after that contract is documented and implemented.
 
