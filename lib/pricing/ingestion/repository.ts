@@ -2,6 +2,8 @@ import { getAdminSupabaseClient } from "@/lib/supabase/admin-client";
 import type {
   PriceIngestionCanonicalPricePointInsert,
   PriceIngestionCanonicalPricePointRow,
+  PriceIngestionPublishedPriceHistoryInsert,
+  PriceIngestionPublishedPriceHistoryRow,
   PriceIngestionRawPriceObservationInsert,
   PriceIngestionRawPriceObservationRow,
   PriceIngestionSourceComplianceRecordInsert,
@@ -31,6 +33,9 @@ const RAW_PRICE_OBSERVATION_COLUMNS =
 const CANONICAL_PRICE_POINT_COLUMNS =
   "id, variant_id, source, source_day_jst, pricing_basis, condition_scale, price_jpy, observed_at, evidence_kind, raw_observation_id, evidence_ref, selection_rank, selection_reason, derivation_version, created_at, updated_at";
 
+const PUBLISHED_PRICE_HISTORY_COLUMNS =
+  "id, variant_id, source, price_jpy, availability_status, recorded_at, canonical_price_point_id, pricing_basis, source_day_jst, condition_scale, created_at";
+
 function compactDefinedEntries<T extends Record<string, unknown>>(value: T) {
   return Object.fromEntries(
     Object.entries(value).filter(([, entry]) => entry !== undefined)
@@ -44,6 +49,45 @@ function withCanonicalPricePointDefaults(
     pricing_basis: PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS,
     evidence_kind: "raw_observation" as const,
     ...record
+  };
+}
+
+export type CanonicalPricePointPublishOptions = {
+  allowAuthorizedFeedEvidence?: boolean;
+};
+
+export function isCanonicalPricePointPublishable(
+  point: PriceIngestionCanonicalPricePointRow,
+  options: CanonicalPricePointPublishOptions = {}
+) {
+  if (point.pricing_basis !== PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS) {
+    return false;
+  }
+
+  if (point.evidence_kind === "raw_observation") {
+    return point.raw_observation_id !== null;
+  }
+
+  if (point.evidence_kind === "authorized_feed") {
+    return options.allowAuthorizedFeedEvidence === true;
+  }
+
+  return false;
+}
+
+function toPublishedPriceHistoryInsert(
+  point: PriceIngestionCanonicalPricePointRow
+): PriceIngestionPublishedPriceHistoryInsert {
+  return {
+    variant_id: point.variant_id,
+    source: point.source,
+    price_jpy: point.price_jpy,
+    availability_status: "available",
+    recorded_at: point.observed_at,
+    canonical_price_point_id: point.id,
+    pricing_basis: point.pricing_basis,
+    source_day_jst: point.source_day_jst,
+    condition_scale: point.condition_scale
   };
 }
 
@@ -233,6 +277,37 @@ export async function upsertCanonicalPricePoints(
   }
 
   return (data as PriceIngestionCanonicalPricePointRow[]) ?? [];
+}
+
+export async function publishCanonicalPricePointsToPriceHistory(
+  points: readonly PriceIngestionCanonicalPricePointRow[],
+  options: CanonicalPricePointPublishOptions & {
+    supabase?: PriceIngestionAdminSupabaseClient;
+  } = {}
+) {
+  const supabase = options.supabase ?? getPriceIngestionAdminSupabaseClient();
+  const records = points
+    .filter((point) => isCanonicalPricePointPublishable(point, options))
+    .map(toPublishedPriceHistoryInsert);
+
+  if (records.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("price_history")
+    .upsert(records, {
+      onConflict: "variant_id,source,source_day_jst,pricing_basis"
+    })
+    .select(PUBLISHED_PRICE_HISTORY_COLUMNS);
+
+  if (error) {
+    throw new Error(
+      formatSupabaseError("publish canonical price points to price history", error.message)
+    );
+  }
+
+  return (data as PriceIngestionPublishedPriceHistoryRow[]) ?? [];
 }
 
 export async function getLatestRawPriceObservationForSourceListing(

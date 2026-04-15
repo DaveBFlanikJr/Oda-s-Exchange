@@ -112,6 +112,32 @@ export type PriceIngestionCanonicalPricePointInsert = {
   derivation_version: string;
 };
 
+export type PriceIngestionPublishedPriceHistoryRow = {
+  id: string;
+  variant_id: string;
+  source: MarketSourceId;
+  price_jpy: number;
+  availability_status: "available";
+  recorded_at: string;
+  canonical_price_point_id: string;
+  pricing_basis: PriceIngestionCanonicalPricingBasis;
+  source_day_jst: string;
+  condition_scale: PriceIngestionConditionScale;
+  created_at: string;
+};
+
+export type PriceIngestionPublishedPriceHistoryInsert = {
+  variant_id: string;
+  source: MarketSourceId;
+  price_jpy: number;
+  availability_status: "available";
+  recorded_at: string;
+  canonical_price_point_id: string;
+  pricing_basis: PriceIngestionCanonicalPricingBasis;
+  source_day_jst: string;
+  condition_scale: PriceIngestionConditionScale;
+};
+
 export type PriceIngestionNormalizedParseOutput =
   | Record<string, unknown>
   | readonly unknown[];

@@ -37,20 +37,25 @@ export {
   insertCanonicalPricePoints,
   insertRawPriceObservation,
   insertRawPriceObservations,
+  isCanonicalPricePointPublishable,
   listCanonicalPricePointsForVariant,
   listRawPriceObservationsForVariant,
   listSourceComplianceRecords,
+  publishCanonicalPricePointsToPriceHistory,
   upsertCanonicalPricePoints,
   upsertSourceComplianceRecord
 } from "./repository";
 
 export type {
+  CanonicalPricePointPublishOptions,
   PriceIngestionAdminSupabaseClient
 } from "./repository";
 
 export type {
   PriceIngestionCanonicalPricePointInsert,
   PriceIngestionCanonicalPricePointRow,
+  PriceIngestionPublishedPriceHistoryInsert,
+  PriceIngestionPublishedPriceHistoryRow,
   PriceIngestionRawPriceObservationInsert,
   PriceIngestionRawPriceObservationRow,
   PriceIngestionSourceComplianceRecordInsert,

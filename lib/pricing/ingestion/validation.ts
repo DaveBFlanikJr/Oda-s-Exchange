@@ -382,6 +382,14 @@ export function validateCanonicalPricePointInsert(
     );
   }
 
+  if (evidenceKind === "authorized_feed" && !isNonEmptyString(record.evidence_ref)) {
+    pushIssue(
+      issues,
+      "evidence_ref",
+      "evidence_ref is required for authorized_feed evidence"
+    );
+  }
+
   if (
     record.evidence_ref !== undefined &&
     record.evidence_ref !== null &&

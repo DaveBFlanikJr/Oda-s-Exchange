@@ -51,7 +51,11 @@ create table if not exists public.canonical_price_points (
       evidence_kind = 'raw_observation'
       and raw_observation_id is not null
     )
-    or evidence_kind = 'authorized_feed'
+    or (
+      evidence_kind = 'authorized_feed'
+      and evidence_ref is not null
+      and length(btrim(evidence_ref)) > 0
+    )
   )
 );
 
