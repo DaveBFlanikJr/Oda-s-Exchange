@@ -32,6 +32,22 @@ Use lowercase kebab-case after the slash. Keep branch names short, descriptive, 
 - For Supabase changes, include or update migrations and confirm RLS/service-role boundaries.
 - For GitHub Actions changes, verify required repository secrets are documented before relying on the workflow.
 
+## Local Development Troubleshooting
+
+If the app starts returning `/_next/static` 404s, the usual cause is a stale or clobbered `.next` cache, often because multiple Next dev servers or builds are sharing the same workspace.
+
+What to look for:
+
+- The browser console shows 404s for `/_next/static/...`
+- The terminal says the port is already in use
+- Dev URLs are requesting un-hashed chunk paths like `main-app.js?v=...`
+
+Recovery steps:
+
+1. Stop all running Next dev servers for this workspace first, including any old terminal tab that owns port `3000`.
+2. Run `pnpm dev:clean`.
+3. Hard refresh the browser.
+
 ## Pull Request Checklist
 
 - The branch name follows the rule above.
