@@ -10,6 +10,7 @@
   "scripts": {
     "preinstall": "node scripts/enforce-pnpm.js",
     "dev": "next dev",
+    "dev:clean": "node scripts/dev/reset-next-cache.mjs && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
