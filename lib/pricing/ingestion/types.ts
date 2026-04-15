@@ -3,6 +3,7 @@ import type {
   PriceIngestionCanonicalPricingBasis,
   PriceIngestionCollectionMethod,
   PriceIngestionConditionScale,
+  PriceIngestionEvidenceKind,
   PriceIngestionListingKind,
   PriceIngestionMatchConfidence,
   PriceIngestionParserVersion,
@@ -74,6 +75,67 @@ export type PriceIngestionCanonicalPrice = {
   priceJpy: number;
   observedAt: string;
   rawObservationId: string | null;
+};
+
+export type PriceIngestionCanonicalPricePointRow = {
+  id: string;
+  variant_id: string;
+  source: MarketSourceId;
+  source_day_jst: string;
+  pricing_basis: PriceIngestionCanonicalPricingBasis;
+  condition_scale: PriceIngestionConditionScale;
+  price_jpy: number;
+  observed_at: string;
+  evidence_kind: PriceIngestionEvidenceKind;
+  raw_observation_id: string | null;
+  evidence_ref: string | null;
+  selection_rank: number;
+  selection_reason: string;
+  derivation_version: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PriceIngestionCanonicalPricePointInsert = {
+  variant_id: string;
+  source: MarketSourceId;
+  source_day_jst: string;
+  pricing_basis?: PriceIngestionCanonicalPricingBasis;
+  condition_scale: PriceIngestionConditionScale;
+  price_jpy: number;
+  observed_at: string;
+  evidence_kind?: PriceIngestionEvidenceKind;
+  raw_observation_id?: string | null;
+  evidence_ref?: string | null;
+  selection_rank?: number;
+  selection_reason?: string;
+  derivation_version: string;
+};
+
+export type PriceIngestionPublishedPriceHistoryRow = {
+  id: string;
+  variant_id: string;
+  source: MarketSourceId;
+  price_jpy: number;
+  availability_status: "available";
+  recorded_at: string;
+  canonical_price_point_id: string;
+  pricing_basis: PriceIngestionCanonicalPricingBasis;
+  source_day_jst: string;
+  condition_scale: PriceIngestionConditionScale;
+  created_at: string;
+};
+
+export type PriceIngestionPublishedPriceHistoryInsert = {
+  variant_id: string;
+  source: MarketSourceId;
+  price_jpy: number;
+  availability_status: "available";
+  recorded_at: string;
+  canonical_price_point_id: string;
+  pricing_basis: PriceIngestionCanonicalPricingBasis;
+  source_day_jst: string;
+  condition_scale: PriceIngestionConditionScale;
 };
 
 export type PriceIngestionNormalizedParseOutput =

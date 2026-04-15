@@ -69,3 +69,11 @@ export type PriceIngestionCanonicalPricingBasis =
 
 export const PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS =
   "daily_best_available_ungraded_best_condition_jst" as const;
+
+export const PRICE_INGESTION_EVIDENCE_KINDS = [
+  "raw_observation",
+  "authorized_feed"
+] as const;
+
+export type PriceIngestionEvidenceKind =
+  (typeof PRICE_INGESTION_EVIDENCE_KINDS)[number];

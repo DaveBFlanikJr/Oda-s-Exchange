@@ -1,11 +1,15 @@
 import {
+  PRICE_INGESTION_CANONICAL_PRICING_BASES,
   PRICE_INGESTION_COLLECTION_METHODS,
   PRICE_INGESTION_CONDITION_SCALES,
+  PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS,
+  PRICE_INGESTION_EVIDENCE_KINDS,
   PRICE_INGESTION_LISTING_KINDS,
   PRICE_INGESTION_MATCH_CONFIDENCES,
   PRICE_INGESTION_SOURCE_POLICY_STATUSES
 } from "@/lib/pricing/ingestion/constants";
 import {
+  type PriceIngestionCanonicalPricePointInsert,
   type PriceIngestionRawPriceObservationInsert,
   type PriceIngestionSourceComplianceRecordInsert
 } from "@/lib/pricing/ingestion/types";
@@ -316,6 +320,121 @@ export function assertRawPriceObservationInsert(
   if (issues.length > 0) {
     throw new Error(
       `Invalid raw price observation: ${issues
+        .map((issue) => `${issue.field}: ${issue.message}`)
+        .join("; ")}`
+    );
+  }
+}
+
+export function validateCanonicalPricePointInsert(
+  record: PriceIngestionCanonicalPricePointInsert
+) {
+  const issues: PriceIngestionValidationIssue[] = [];
+  const pricingBasis =
+    record.pricing_basis ?? PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS;
+  const evidenceKind = record.evidence_kind ?? "raw_observation";
+
+  if (!isNonEmptyString(record.variant_id)) {
+    pushIssue(issues, "variant_id", "variant_id is required");
+  }
+
+  if (!record.source) {
+    pushIssue(issues, "source", "source is required");
+  }
+
+  if (!isNonEmptyString(record.source_day_jst)) {
+    pushIssue(issues, "source_day_jst", "source_day_jst is required");
+  } else if (!isValidIsoDate(record.source_day_jst)) {
+    pushIssue(
+      issues,
+      "source_day_jst",
+      "source_day_jst must be a valid ISO date"
+    );
+  }
+
+  if (!PRICE_INGESTION_CANONICAL_PRICING_BASES.includes(pricingBasis)) {
+    pushIssue(issues, "pricing_basis", "pricing_basis is not valid");
+  }
+
+  if (!PRICE_INGESTION_CONDITION_SCALES.includes(record.condition_scale)) {
+    pushIssue(issues, "condition_scale", "condition_scale is not valid");
+  }
+
+  if (!isIntegerLike(record.price_jpy) || record.price_jpy <= 0) {
+    pushIssue(issues, "price_jpy", "price_jpy must be a positive integer");
+  }
+
+  if (!isNonEmptyString(record.observed_at)) {
+    pushIssue(issues, "observed_at", "observed_at is required");
+  } else if (!isValidIsoTimestamp(record.observed_at)) {
+    pushIssue(issues, "observed_at", "observed_at must be a valid ISO timestamp");
+  }
+
+  if (!PRICE_INGESTION_EVIDENCE_KINDS.includes(evidenceKind)) {
+    pushIssue(issues, "evidence_kind", "evidence_kind is not valid");
+  }
+
+  if (evidenceKind === "raw_observation" && !isNonEmptyString(record.raw_observation_id)) {
+    pushIssue(
+      issues,
+      "raw_observation_id",
+      "raw_observation_id is required for raw_observation evidence"
+    );
+  }
+
+  if (evidenceKind === "authorized_feed" && !isNonEmptyString(record.evidence_ref)) {
+    pushIssue(
+      issues,
+      "evidence_ref",
+      "evidence_ref is required for authorized_feed evidence"
+    );
+  }
+
+  if (
+    record.evidence_ref !== undefined &&
+    record.evidence_ref !== null &&
+    !isNonEmptyString(record.evidence_ref)
+  ) {
+    pushIssue(issues, "evidence_ref", "evidence_ref must not be empty");
+  }
+
+  if (
+    record.selection_rank !== undefined &&
+    (!isIntegerLike(record.selection_rank) || record.selection_rank < 0)
+  ) {
+    pushIssue(
+      issues,
+      "selection_rank",
+      "selection_rank must be a non-negative integer"
+    );
+  }
+
+  if (
+    record.selection_reason !== undefined &&
+    record.selection_reason.length > 2000
+  ) {
+    pushIssue(
+      issues,
+      "selection_reason",
+      "selection_reason must be 2000 characters or less"
+    );
+  }
+
+  if (!isNonEmptyString(record.derivation_version)) {
+    pushIssue(issues, "derivation_version", "derivation_version is required");
+  }
+
+  return issues;
+}
+
+export function assertCanonicalPricePointInsert(
+  record: PriceIngestionCanonicalPricePointInsert
+) {
+  const issues = validateCanonicalPricePointInsert(record);
+
+  if (issues.length > 0) {
+    throw new Error(
+      `Invalid canonical price point: ${issues
         .map((issue) => `${issue.field}: ${issue.message}`)
         .join("; ")}`
     );

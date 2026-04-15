@@ -13,6 +13,9 @@ import {
   deriveCanonicalPriceCandidates,
   type PriceIngestionRawObservationInput
 } from "@/lib/pricing/ingestion/derive";
+import { isCanonicalPricePointPublishable } from "@/lib/pricing/ingestion/repository";
+import { validateCanonicalPricePointInsert } from "@/lib/pricing/ingestion/validation";
+import type { PriceIngestionCanonicalPricePointRow } from "@/lib/pricing/ingestion/types";
 
 type PriceIngestionFixtureCase = {
   id: string;
@@ -217,6 +220,30 @@ function buildRegressionObservation(
   };
 }
 
+function buildRegressionCanonicalPoint(
+  overrides: Partial<PriceIngestionCanonicalPricePointRow>
+): PriceIngestionCanonicalPricePointRow {
+  return {
+    id: "canonical-point-default",
+    variant_id: "variant-eb02-061-standard",
+    source: "card_rush",
+    source_day_jst: "2024-04-01",
+    pricing_basis: PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS,
+    condition_scale: "mint",
+    price_jpy: 1180,
+    observed_at: "2024-04-01T02:00:00.000Z",
+    evidence_kind: "raw_observation",
+    raw_observation_id: "raw-observation-default",
+    evidence_ref: "snapshot-canonical-point-default",
+    selection_rank: 0,
+    selection_reason: "basis regression default point",
+    derivation_version: "test-regression/1",
+    created_at: "2024-04-01T02:00:00.000Z",
+    updated_at: "2024-04-01T02:00:00.000Z",
+    ...overrides
+  };
+}
+
 function addRegressionIssue(
   issues: RegressionIssue[],
   scenario: string,
@@ -384,6 +411,93 @@ function runCanonicalBasisRegressionChecks() {
   return issues;
 }
 
+function runPublisherEligibilityRegressionChecks() {
+  const issues: RegressionIssue[] = [];
+  const authorizedFeedWithoutEvidenceIssues = validateCanonicalPricePointInsert({
+    variant_id: "variant-eb02-061-standard",
+    source: "card_rush",
+    source_day_jst: "2024-04-01",
+    condition_scale: "mint",
+    price_jpy: 1180,
+    observed_at: "2024-04-01T02:00:00.000Z",
+    evidence_kind: "authorized_feed",
+    raw_observation_id: null,
+    derivation_version: "test-regression/1"
+  });
+
+  addRegressionIssue(
+    issues,
+    "publisher eligibility",
+    "default_raw_observation_basis",
+    true,
+    isCanonicalPricePointPublishable(buildRegressionCanonicalPoint({}))
+  );
+  addRegressionIssue(
+    issues,
+    "publisher eligibility",
+    "legacy_basis",
+    false,
+    isCanonicalPricePointPublishable(
+      buildRegressionCanonicalPoint({
+        id: "canonical-point-legacy",
+        pricing_basis: "daily_best_available_jst"
+      })
+    )
+  );
+  addRegressionIssue(
+    issues,
+    "canonical point validation",
+    "authorized_feed_requires_evidence_ref",
+    true,
+    authorizedFeedWithoutEvidenceIssues.some(
+      (issue) => issue.field === "evidence_ref"
+    )
+  );
+  addRegressionIssue(
+    issues,
+    "publisher eligibility",
+    "authorized_feed_default",
+    false,
+    isCanonicalPricePointPublishable(
+      buildRegressionCanonicalPoint({
+        id: "canonical-point-authorized-feed",
+        evidence_kind: "authorized_feed",
+        raw_observation_id: null,
+        evidence_ref: "authorized-feed/default-basis"
+      })
+    )
+  );
+  addRegressionIssue(
+    issues,
+    "publisher eligibility",
+    "authorized_feed_explicitly_allowed",
+    true,
+    isCanonicalPricePointPublishable(
+      buildRegressionCanonicalPoint({
+        id: "canonical-point-authorized-feed-allowed",
+        evidence_kind: "authorized_feed",
+        raw_observation_id: null,
+        evidence_ref: "authorized-feed/default-basis"
+      }),
+      { allowAuthorizedFeedEvidence: true }
+    )
+  );
+  addRegressionIssue(
+    issues,
+    "publisher eligibility",
+    "raw_observation_requires_lineage",
+    false,
+    isCanonicalPricePointPublishable(
+      buildRegressionCanonicalPoint({
+        id: "canonical-point-missing-lineage",
+        raw_observation_id: null
+      })
+    )
+  );
+
+  return issues;
+}
+
 async function main() {
   const raw = await readFile(fixturePath, "utf8");
   const fixture = JSON.parse(raw) as PriceIngestionFixtureFile;
@@ -455,7 +569,10 @@ async function main() {
 
   const supportedIssues = issues.filter((issue) => !isSkippedField(issue.caseId, issue.field));
   const skippedIssues = issues.filter((issue) => isSkippedField(issue.caseId, issue.field));
-  const regressionIssues = runCanonicalBasisRegressionChecks();
+  const regressionIssues = [
+    ...runCanonicalBasisRegressionChecks(),
+    ...runPublisherEligibilityRegressionChecks()
+  ];
 
   for (const skipped of skippedIssues) {
     skips.push({
@@ -468,7 +585,7 @@ async function main() {
   if (supportedIssues.length === 0) {
     if (regressionIssues.length === 0) {
       console.log(
-        `Validated ${fixture.cases.length} fixture cases and canonical basis regression checks.`
+        `Validated ${fixture.cases.length} fixture cases, canonical basis checks, and publisher eligibility checks.`
       );
 
       if (skips.length > 0) {

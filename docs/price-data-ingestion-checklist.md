@@ -2,6 +2,10 @@
 
 This checklist tracks the remaining work for gathering actual OPTCG price data and source evidence. The plan is compliance-first: do not automate collection from a source when its published policy or a missing permission path blocks that use.
 
+## Project Note
+
+Card Rush is the intended source of card price data. The ingestion work must preserve prices by card condition now, and expose condition-specific views later, not collapse every listing into one undifferentiated price. Matching is equally important: each Card Rush listing must connect to the correct card and variant already stored in our database before any price is published.
+
 ## Current Foundation
 
 - [x] Supabase stores prices at the `card_variants` grain through `price_history`.
@@ -31,10 +35,11 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 
 ## Derived Pricing Schema
 
-- [ ] Decide whether `price_history` remains canonical-only or is extended to include basis, condition, and raw-observation lineage.
-- [ ] If condition-specific rows are stored in `price_history`, update the hourly uniqueness model so different condition/basis rows do not collide.
-- [ ] Prefer a separate derived canonical table or view if `price_history` should remain simple for the UI.
-- [ ] Link every canonical price point back to raw observation evidence or authorized feed evidence.
+- [x] Decide whether `price_history` remains canonical-only or is extended to include basis, condition, and raw-observation lineage.
+- [x] Keep `price_history` as the UI compatibility table while publishing only default canonical points into it.
+- [x] Add `canonical_price_points` as the derived canonical table for basis, condition, and lineage.
+- [x] Add publish metadata to `price_history`, scope legacy UTC-hour dedupe to unpublished rows, and use `unique (variant_id, source, source_day_jst, pricing_basis)` for idempotent canonical publishing.
+- [x] Link every canonical price point back to raw observation evidence or authorized feed evidence; authorized-feed rows require a durable non-empty `evidence_ref`.
 - [ ] Keep condition-specific price facts separate from canonical chart points unless the pricing basis explicitly includes that condition.
 
 ## Canonical Price Semantics
@@ -43,7 +48,7 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 - [x] Define the canonical basis in one place, for example `daily_best_available_ungraded_best_condition_jst`.
 - [x] Exclude damaged, graded, proxy/custom, sealed-only, deck-product, and ambiguous listings from default canonical UI pricing unless a product decision says otherwise.
 - [x] For retailer sources, prefer the best available ungraded condition bucket instead of the naive lowest listing.
-- [x] For noisy peer-to-peer sources, decide whether to use median, trimmed median, or a separate marketplace signal that does not feed the canonical lowest-price chart.
+- [x] For noisy peer-to-peer sources such as Mercari JP, keep them out of the default canonical lowest-price chart until a separate marketplace signal, median, or trimmed-median basis is explicitly defined.
 - [ ] Update `lib/card-detail/series.ts` and any API contracts after derived canonical writes land.
 
 ## Variant Identity Audit
@@ -56,14 +61,18 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 
 ## Source Adapters
 
+- [ ] Treat Card Rush as the primary intended price data source, subject to the compliance gate.
 - [ ] Build source-specific adapters only after each source passes the compliance gate.
 - [ ] Verify and document each source's approved collection method, listing URL shape, price field, sold-out marker, condition marker, and parse strategy.
 - [ ] For Card Rush, use only manually captured fixtures until approval or authorized feed access exists.
 - [ ] Keep `reference.md` updated whenever a source URL, selector, availability marker, or permission status changes.
 - [ ] Persist sold-out and error observations as raw observations with `price_jpy = null`.
+- [x] Disable the stale `scripts/scrape/index.ts` path so it cannot write directly to `price_history` and bypass the raw-to-derived boundary.
+- [x] Document that the current GitHub Actions scraper workflow will fail fast until it is replaced with a compliant raw-observation ingestion job or disabled for deployment.
 
 ## Variant Matching
 
+- [ ] Connect each Card Rush listing to the correct existing database card and `card_variants.id` before publishing prices.
 - [ ] Match source observations to the correct `card_variants.id`, not just the card code.
 - [ ] Account for cards like `EB02-061`, where source search results can mix many card variants and treatments.
 - [ ] Detect manga variants using source text markers such as `漫画背景` and `漫画絵`.
@@ -73,6 +82,8 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 
 ## Condition And Price Quality
 
+- [ ] Preserve Card Rush condition-specific prices in raw/derived storage.
+- [ ] Expose supported condition-specific prices in the UI after the storage contract is stable.
 - [ ] Capture card condition from source listings when available.
 - [ ] Normalize conditions into a shared scale, for example mint, near-mint, light-play, moderate-play, damaged, graded, and unknown.
 - [ ] Treat condition as price-affecting evidence: mint condition should not be mixed blindly with damaged prices.
@@ -92,7 +103,8 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 - [ ] Add schema tests for raw observation storage.
 - [x] Add a DB smoke test that inserts one valid available canonical price row.
 - [x] Add a DB smoke test that inserts one valid sold-out raw observation.
-- [ ] Add a test proving valid canonical rows produce non-empty card-detail `marketListings`.
+- [x] Add a DB smoke test that publishes raw-backed canonical points into `price_history` idempotently through the default basis/source/day key.
+- [ ] Add a test proving published default canonical rows in `price_history` produce non-empty card-detail overview, chart, and `marketListings`.
 - [x] Add fixture-based parser tests that can consume `tests/fixtures/price-ingestion/eb02-061-cases.json`.
 - [x] Cover manga, alt-art, mint, damaged, graded, sold-out, deck-product, and ambiguous examples in the fixture set.
 - [x] Update stale DB smoke SQL so it matches the current `cards` schema.

@@ -104,6 +104,34 @@ select
 from public.raw_price_observations
 limit 3;
 
+\echo 'Inspecting public.canonical_price_points columns'
+select
+  column_name,
+  data_type,
+  is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'canonical_price_points'
+order by ordinal_position;
+
+\echo 'Fetching sample rows from public.canonical_price_points'
+select
+  variant_id,
+  source,
+  source_day_jst,
+  pricing_basis,
+  condition_scale,
+  price_jpy,
+  observed_at,
+  evidence_kind,
+  raw_observation_id,
+  evidence_ref,
+  selection_rank,
+  selection_reason,
+  derivation_version
+from public.canonical_price_points
+limit 3;
+
 \echo 'Inspecting public.price_history columns'
 select
   column_name,
@@ -189,6 +217,64 @@ returning
   normalized_parse_output,
   matched_variant_id;
 
+with available_raw_observation as (
+  select
+    id,
+    source,
+    observed_at,
+    normalized_condition,
+    price_jpy,
+    snapshot_ref,
+    matched_variant_id
+  from public.raw_price_observations
+  where source_listing_id = 'db-smoke-eb02-061-available'
+    and parser_version = 'db-smoke/1'
+  order by created_at desc
+  limit 1
+)
+insert into public.canonical_price_points (
+  variant_id,
+  source,
+  source_day_jst,
+  pricing_basis,
+  condition_scale,
+  price_jpy,
+  observed_at,
+  evidence_kind,
+  raw_observation_id,
+  evidence_ref,
+  selection_rank,
+  selection_reason,
+  derivation_version
+)
+select
+  raw.matched_variant_id,
+  raw.source,
+  (raw.observed_at at time zone 'Asia/Tokyo')::date,
+  'daily_best_available_ungraded_best_condition_jst',
+  raw.normalized_condition,
+  raw.price_jpy,
+  raw.observed_at,
+  'raw_observation',
+  raw.id,
+  raw.snapshot_ref,
+  1,
+  'db smoke canonical derived from raw observation',
+  'db-smoke/1'
+from available_raw_observation raw
+where raw.matched_variant_id is not null
+  and raw.price_jpy is not null
+returning
+  variant_id,
+  source,
+  source_day_jst,
+  pricing_basis,
+  condition_scale,
+  price_jpy,
+  evidence_kind,
+  raw_observation_id,
+  derivation_version;
+
 with target_variant as (
   select id
   from public.card_variants
@@ -248,12 +334,22 @@ returning
   normalized_parse_output,
   matched_variant_id;
 
-with target_variant as (
-  select id
-  from public.card_variants
-  where card_id = 'EB02-061'
-    and source_variant_key = 'STD'
-  order by id
+\echo 'Publishing derived canonical point into public.price_history'
+with default_canonical_point as (
+  select
+    id,
+    variant_id,
+    source,
+    source_day_jst,
+    pricing_basis,
+    condition_scale,
+    price_jpy,
+    observed_at
+  from public.canonical_price_points
+  where derivation_version = 'db-smoke/1'
+    and pricing_basis = 'daily_best_available_ungraded_best_condition_jst'
+    and source_day_jst = date '2099-01-01'
+  order by created_at desc
   limit 1
 )
 insert into public.price_history (
@@ -261,16 +357,98 @@ insert into public.price_history (
   source,
   price_jpy,
   availability_status,
-  recorded_at
+  recorded_at,
+  canonical_price_point_id,
+  pricing_basis,
+  source_day_jst,
+  condition_scale
 )
 select
-  target_variant.id,
-  'card_rush',
-  12345,
+  canonical.variant_id,
+  canonical.source,
+  canonical.price_jpy,
   'available',
-  timestamptz '2099-01-01 12:00:00+00'
-from target_variant
-returning variant_id, source, price_jpy, availability_status, recorded_at;
+  canonical.observed_at,
+  canonical.id,
+  canonical.pricing_basis,
+  canonical.source_day_jst,
+  canonical.condition_scale
+from default_canonical_point canonical
+on conflict (variant_id, source, source_day_jst, pricing_basis)
+do update set
+  price_jpy = excluded.price_jpy,
+  availability_status = excluded.availability_status,
+  recorded_at = excluded.recorded_at,
+  canonical_price_point_id = excluded.canonical_price_point_id,
+  condition_scale = excluded.condition_scale
+returning
+  variant_id,
+  source,
+  price_jpy,
+  availability_status,
+  recorded_at,
+  canonical_price_point_id,
+  pricing_basis,
+  source_day_jst,
+  condition_scale;
+
+\echo 'Re-publishing the same canonical point to prove price_history idempotency'
+with default_canonical_point as (
+  select
+    id,
+    variant_id,
+    source,
+    source_day_jst,
+    pricing_basis,
+    condition_scale,
+    price_jpy,
+    observed_at
+  from public.canonical_price_points
+  where derivation_version = 'db-smoke/1'
+    and pricing_basis = 'daily_best_available_ungraded_best_condition_jst'
+    and source_day_jst = date '2099-01-01'
+  order by created_at desc
+  limit 1
+)
+insert into public.price_history (
+  variant_id,
+  source,
+  price_jpy,
+  availability_status,
+  recorded_at,
+  canonical_price_point_id,
+  pricing_basis,
+  source_day_jst,
+  condition_scale
+)
+select
+  canonical.variant_id,
+  canonical.source,
+  canonical.price_jpy,
+  'available',
+  canonical.observed_at,
+  canonical.id,
+  canonical.pricing_basis,
+  canonical.source_day_jst,
+  canonical.condition_scale
+from default_canonical_point canonical
+on conflict (variant_id, source, source_day_jst, pricing_basis)
+do update set
+  price_jpy = excluded.price_jpy,
+  availability_status = excluded.availability_status,
+  recorded_at = excluded.recorded_at,
+  canonical_price_point_id = excluded.canonical_price_point_id,
+  condition_scale = excluded.condition_scale
+returning
+  variant_id,
+  source,
+  price_jpy,
+  availability_status,
+  recorded_at,
+  canonical_price_point_id,
+  pricing_basis,
+  source_day_jst,
+  condition_scale;
 
 select
   source_listing_id,
@@ -290,10 +468,15 @@ select
   source,
   price_jpy,
   availability_status,
-  recorded_at
+  recorded_at,
+  canonical_price_point_id,
+  pricing_basis,
+  source_day_jst,
+  condition_scale
 from public.price_history
 where source = 'card_rush'
-  and recorded_at = timestamptz '2099-01-01 12:00:00+00'
+  and source_day_jst = date '2099-01-01'
+  and pricing_basis = 'daily_best_available_ungraded_best_condition_jst'
 order by variant_id;
 
 select
@@ -313,15 +496,47 @@ where source_listing_id in (
 );
 
 select
+  count(*) as canonical_price_point_rows,
+  count(*) filter (
+    where pricing_basis = 'daily_best_available_ungraded_best_condition_jst'
+      and evidence_kind = 'raw_observation'
+      and raw_observation_id is not null
+      and price_jpy = 12345
+  ) as raw_linked_default_basis_rows
+from public.canonical_price_points
+where derivation_version = 'db-smoke/1'
+  and source_day_jst = date '2099-01-01';
+
+select
   count(*) as canonical_price_rows,
   count(*) filter (
     where source = 'card_rush'
       and availability_status = 'available'
       and price_jpy = 12345
-      and recorded_at = timestamptz '2099-01-01 12:00:00+00'
+      and canonical_price_point_id is not null
+      and pricing_basis = 'daily_best_available_ungraded_best_condition_jst'
+      and source_day_jst = date '2099-01-01'
+      and condition_scale = 'near_mint'
   ) as available_canonical_price_rows
 from public.price_history
 where source = 'card_rush'
-  and recorded_at = timestamptz '2099-01-01 12:00:00+00';
+  and source_day_jst = date '2099-01-01'
+  and pricing_basis = 'daily_best_available_ungraded_best_condition_jst';
+
+do $$
+declare
+  published_row_count integer;
+begin
+  select count(*)
+  into published_row_count
+  from public.price_history
+  where source = 'card_rush'
+    and source_day_jst = date '2099-01-01'
+    and pricing_basis = 'daily_best_available_ungraded_best_condition_jst';
+
+  if published_row_count <> 1 then
+    raise exception 'Expected exactly one idempotently published price_history row, found %', published_row_count;
+  end if;
+end $$;
 
 rollback;
