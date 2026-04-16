@@ -1,38 +1,20 @@
-name: optcg-scraper
+name: deployment-readiness
 
 on:
-  schedule:
-    - cron: "0 15 * * *"
   workflow_dispatch:
-    inputs:
-      manual_run_token:
-        description: "Owner-only token for manual runs"
-        required: true
-        type: string
 
 concurrency:
-  group: scraper-singleton
+  group: deployment-readiness
   cancel-in-progress: false
 
 jobs:
-  scrape:
+  readiness:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Validate manual trigger token
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          EXPECTED_TOKEN: ${{ secrets.SCRAPER_MANUAL_RUN_TOKEN }}
-          PROVIDED_TOKEN: ${{ github.event.inputs.manual_run_token }}
-        run: |
-          if [ -z "$EXPECTED_TOKEN" ] || [ "$EXPECTED_TOKEN" != "$PROVIDED_TOKEN" ]; then
-            echo "Invalid manual run token."
-            exit 1
-          fi
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -48,17 +30,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Validate deployment readiness contract
+        run: pnpm test:deployment-readiness
 
-      - name: Validate scraper environment
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: pnpm scrape:validate
+      - name: Run price ingestion fixture tests
+        run: pnpm test:price-ingestion
 
-      - name: Run scraper
+      - name: Verify applied migrations
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: pnpm scrape
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm migrations:verify
+
+      - name: Typecheck
+        run: pnpm typecheck

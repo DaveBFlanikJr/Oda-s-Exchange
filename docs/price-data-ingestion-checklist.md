@@ -11,14 +11,14 @@ Card Rush is the intended source of card price data. The ingestion work must pre
 - [x] Supabase stores prices at the `card_variants` grain through `price_history`.
 - [x] Public reads and service-role writes are separated by RLS.
 - [x] Card detail v2 reads variant-level history and builds overview, chart, and live marketplace sections from real rows.
-- [x] GitHub Actions scraper workflow exists with singleton concurrency and manual trigger protection.
+- [x] GitHub Actions deployment-readiness workflow exists as a manual-only, non-scraping check.
 - [x] Scraper scaffolding exists for Card Rush, Yuyu-Tei, and Mercari JP.
 - [x] Known scraper schema drift is documented in `docs/live-marketplace-incident-report.md`.
 
 ## Source Compliance Gate
 
-- [ ] Record Card Rush policy URL before any related work: `https://cardrush.media/data_policy`.
-- [ ] Do not run automated Card Rush scraping until a permitted data-use path is confirmed.
+- [x] Record Card Rush policy URL before any related work: `https://cardrush.media/data_policy`.
+- [x] Do not run automated Card Rush scraping until a permitted data-use path is confirmed.
 - [ ] Contact Card Rush through their published data-use/partnership path before using Card Rush price data in an automated collector.
 - [ ] Treat Card Rush as a manually captured fixture source only until approval or an authorized feed exists.
 - [x] Seed `source_compliance_records` for Card Rush, Yuyu-Tei, and Mercari JP with cautious defaults; Card Rush remains `restricted` and `manual_fixture` only, with scheduled collection disabled until approval or an authorized feed exists.
@@ -30,7 +30,7 @@ Card Rush is the intended source of card price data. The ingestion work must pre
 - [x] Add a raw observation table before writing new source data into `price_history`.
 - [x] Retain enough evidence to debug bad matches later: `source`, `source_listing_id`, `source_url`, `observed_at`, `parser_version`, `normalized_card_code`, `raw_title`, `raw_condition`, `raw_price_text`, `price_jpy`, `availability_status`, `listing_kind`, `raw_text_snapshot`, `snapshot_ref`, `excluded_reason`, `match_confidence`, and `matched_variant_id`.
 - [x] Store normalized parse output, not just a hash.
-- [ ] Keep durable snapshot references for manually approved fixtures and any future authorized feeds.
+- [x] Keep durable snapshot references for manually approved fixtures and any future authorized feeds.
 - [x] Do not write low-confidence or excluded raw observations into canonical pricing outputs.
 
 ## Derived Pricing Schema
@@ -64,7 +64,7 @@ Card Rush is the intended source of card price data. The ingestion work must pre
 - [ ] Treat Card Rush as the primary intended price data source, subject to the compliance gate.
 - [ ] Build source-specific adapters only after each source passes the compliance gate.
 - [ ] Verify and document each source's approved collection method, listing URL shape, price field, sold-out marker, condition marker, and parse strategy.
-- [ ] For Card Rush, use only manually captured fixtures until approval or authorized feed access exists.
+- [x] For Card Rush, use only manually captured fixtures until approval or authorized feed access exists.
 - [ ] Keep `reference.md` updated whenever a source URL, selector, availability marker, or permission status changes.
 - [ ] Persist sold-out and error observations as raw observations with `price_jpy = null`.
 - [x] Disable the stale `scripts/scrape/index.ts` path so it cannot write directly to `price_history` and bypass the raw-to-derived boundary.
@@ -72,8 +72,8 @@ Card Rush is the intended source of card price data. The ingestion work must pre
 
 ## Variant Matching
 
-- [ ] Connect each Card Rush listing to the correct existing database card and `card_variants.id` before publishing prices.
-- [ ] Match source observations to the correct `card_variants.id`, not just the card code.
+- [x] Connect each Card Rush fixture listing to the correct existing database card and `card_variants.id` before publishing prices.
+- [x] Match manual fixture observations to the correct `card_variants.id`, not just the card code.
 - [ ] Account for cards like `EB02-061`, where source search results can mix many card variants and treatments.
 - [ ] Detect manga variants using source text markers such as `漫画背景` and `漫画絵`.
 - [ ] Define alt-art matching rules separately from manga matching, since alt arts may not have a single obvious text marker.
@@ -100,7 +100,7 @@ Card Rush is the intended source of card price data. The ingestion work must pre
 
 ## Verification
 
-- [ ] Add schema tests for raw observation storage.
+- [x] Add schema tests for raw observation storage.
 - [x] Add a DB smoke test that inserts one valid available canonical price row.
 - [x] Add a DB smoke test that inserts one valid sold-out raw observation.
 - [x] Add a DB smoke test that publishes raw-backed canonical points into `price_history` idempotently through the default basis/source/day key.
@@ -108,9 +108,10 @@ Card Rush is the intended source of card price data. The ingestion work must pre
 - [x] Add fixture-based parser tests that can consume `tests/fixtures/price-ingestion/eb02-061-cases.json`.
 - [x] Cover manga, alt-art, mint, damaged, graded, sold-out, deck-product, and ambiguous examples in the fixture set.
 - [x] Update stale DB smoke SQL so it matches the current `cards` schema.
-- [ ] Confirm GitHub repository secrets exist before relying on scheduled collection.
+- [x] Replace scheduled collection with manual non-scraping deployment-readiness checks.
 
 ## Foundation Docs
 
 - [x] Added `docs/price-ingestion-rollout.md` to describe compliance gating, raw observation capture, canonical derivation, and fixture rollout.
 - [x] Added a lightweight fixture set at `tests/fixtures/price-ingestion/eb02-061-cases.json` for later pure-helper parser and matcher tests.
+- [x] Added `docs/deployment-readiness.md` for migration apply/verify, manual readiness workflow, secrets, and manual Card Rush fixture ingestion.

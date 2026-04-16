@@ -79,3 +79,15 @@ It should cover:
 - ambiguous matches that should be rejected
 
 Later pure-helper tests can load those fixtures without needing any production imports.
+
+## Deployment Readiness
+
+Deployment readiness is gated by migration verification before any fixture write:
+
+1. Apply migrations with `supabase db push` or the provider migration flow.
+2. Run `pnpm migrations:verify`.
+3. Run manual fixture ingestion only from committed fixture JSON.
+
+The manual Card Rush fixture path is `pnpm ingest:card-rush-fixture`. It reads `tests/fixtures/price-ingestion/card-rush-manual-ingestion-eb02-061.json` by default, requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, verifies Card Rush remains `restricted` / `manual_fixture` / unscheduled, writes raw observations, derives canonical candidates, and publishes to `price_history` only with `--publish`.
+
+The GitHub readiness workflow is manual-only and non-scraping. It does not install browser tooling, does not call `pnpm scrape`, and does not receive service-role write credentials. It runs `pnpm migrations:verify` with `DATABASE_URL` so stale migration state is caught before manual fixture work.

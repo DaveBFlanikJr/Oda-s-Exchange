@@ -20,7 +20,10 @@
     "seed:repair-english-names": "tsx scripts/seed/repair-english-names.ts",
     "seed:punk-records": "tsx scripts/seed/punk-records.ts",
     "test:price-ingestion": "node --import tsx scripts/price-ingestion/validate-fixtures.ts",
+    "test:deployment-readiness": "node --import tsx scripts/price-ingestion/validate-deployment-readiness.ts",
     "test:db:cards": "bash tests/db/run-card-smoke.sh",
+    "migrations:verify": "bash tests/db/run-card-smoke.sh",
+    "ingest:card-rush-fixture": "tsx scripts/price-ingestion/ingest-card-rush-fixture.ts",
     "audit:variant-identity": "tsx scripts/price-ingestion/variant-identity-audit.ts",
     "scrape": "tsx scripts/scrape/index.ts",
     "scrape:validate": "tsx scripts/scrape/validate-env.ts"

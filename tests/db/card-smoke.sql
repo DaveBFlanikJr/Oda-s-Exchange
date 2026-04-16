@@ -132,6 +132,35 @@ select
 from public.canonical_price_points
 limit 3;
 
+\echo 'Verifying Card Rush compliance gate before fixture ingestion or publishing'
+select
+  source,
+  policy_url,
+  permission_status,
+  allowed_collection_method,
+  scheduled_collection_enabled
+from public.source_compliance_records
+where source = 'card_rush';
+
+do $$
+declare
+  matching_compliance_rows integer;
+begin
+  select count(*)
+  into matching_compliance_rows
+  from public.source_compliance_records
+  where source = 'card_rush'
+    and policy_url = 'https://cardrush.media/data_policy'
+    and permission_status = 'restricted'
+    and allowed_collection_method = 'manual_fixture'
+    and scheduled_collection_enabled = false;
+
+  if matching_compliance_rows <> 1 then
+    raise exception
+      'Card Rush compliance gate failed: expected restricted/manual_fixture/scheduled_collection_enabled=false before fixture ingestion or publishing';
+  end if;
+end $$;
+
 \echo 'Inspecting public.price_history columns'
 select
   column_name,
