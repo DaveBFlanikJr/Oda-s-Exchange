@@ -44,6 +44,9 @@ This workspace covers the operational layer that keeps the product healthy: auto
 - Commit messages should be concise and action-oriented
 - Pull requests should summarize scope, user or system impact, and any validation that was run
 - Use draft pull requests when the change is still in progress or needs follow-up work before review
+- After opening a pull request, run a review pass for scope, validation, docs, and risk
+- If no issues are found, present the PR as ready for final approval
+- Do not merge until Dave approval and required checks pass
 - Do not mix unrelated refactors or cleanup into a focused feature or bugfix branch unless it is necessary for the change
 - If a change affects deployment, ingestion quality, or public pricing behavior, call that out explicitly in the PR
 
