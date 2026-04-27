@@ -53,7 +53,7 @@ These project files should be included because they define the application, infr
 | `.npmrc` | Enforces engine strictness and frozen lockfile preferences for consistent installs. |
 | `.env.example` | Safe environment template that documents required variables. |
 | `next.config.ts`, `postcss.config.mjs`, `tsconfig.json`, `next-env.d.ts`, `middleware.ts` | Project configuration and framework/type integration files. |
-| `agent.md`, `reference.md` | Project/product reference notes. Keep them if this repo is private or if the notes are intended to be shared with contributors. |
+| `AGENT.md`, `reference.md` | Project/product reference notes. Keep them if this repo is private or if the notes are intended to be shared with contributors. |
 
 ## Review Before Public Release
 
@@ -61,7 +61,7 @@ These files are not automatically unsafe, but they deserve a quick human check b
 
 | Path | Review reason |
 | --- | --- |
-| `agent.md` | Contains product direction, architecture notes, and security strategy. Good for a private/team repo; potentially too detailed for a public repo. |
+| `AGENT.md` | Contains product direction, architecture notes, and security strategy. Good for a private/team repo; potentially too detailed for a public repo. |
 | `reference.md` | Contains source URLs, scraper notes, and ID normalization rules. Likely useful, but confirm the scraper target notes are okay to publish. |
 | `docs/live-marketplace-incident-report.md` | Contains detailed implementation analysis and absolute local path references from the current machine. Useful internally, but consider converting links to relative paths before public release. |
 | `.github/workflows/scraper.yml` | It correctly uses GitHub secrets, but the remote repo must define those secrets before the scheduled workflow can run. |
