@@ -91,7 +91,9 @@ Rules:
 
 The older `daily_best_available_jst` rule remains the legacy description of how existing `price_history` rows are aggregated for card-detail today. New ingestion work should not write raw or condition-mixed observations directly into `price_history`; it should first store raw observations, derive the condition-aware canonical basis, and then publish only canonical points to the UI-facing series. Until derived canonical writes land, the card-detail overview and chart continue to read the legacy `price_history` series.
 
-Noisy peer-to-peer sources such as Mercari JP must not feed the default lowest-price chart until their basis is defined. Use a separate marketplace signal, median, or trimmed-median rule only after that contract is documented and implemented.
+Under the current project scope, Card Rush is the only active intended pricing source for published default UI pricing.
+
+Non-Card Rush sources, including Mercari JP, are deferred for current pricing work and must not feed the default lowest-price chart until a future source contract is approved, documented, and implemented.
 
 This canonical series drives:
 

@@ -8,12 +8,13 @@ This workspace covers the architectural view of the app. It is the place for sha
 
 ## Current Project
 
-We are building a high-precision price intelligence service for the Japanese One Piece Card Game secondary market. The app combines a Next.js catalog and card detail experience with a scraper, a price ingestion pipeline, and a Supabase-backed data model, all centered on Tokyo-market pricing in JPY. The current focus is turning the existing pipeline and UI into a consistent end-to-end pricing platform that can replace temporary fallback behavior with real market intelligence.
+We are building a high-precision price intelligence service for the Japanese One Piece Card Game secondary market. The app combines a Next.js catalog and card detail experience with a scraper, a price ingestion pipeline, and a Supabase-backed data model, all centered on Tokyo-market pricing in JPY. Under the current project scope, Card Rush is the only active pricing source, and it remains manual-fixture only until an approved data-use path or authorized feed exists. The current focus is turning the existing pipeline and UI into a consistent end-to-end pricing platform that can replace temporary fallback behavior with real market intelligence.
 
 ## Core Constraints
 
 - Primary currency: JPY
-- Data sources: Prioritize Japanese platforms including Card Rush, Yuyu-Tei, and Mercari JP
+- Active pricing source: Card Rush only under the current project scope
+- Deferred pricing sources: Yuyu-Tei and Mercari JP
 - Package manager: Strictly `pnpm`; do not use `npm` or `yarn`
 - HTTP client: Strictly `axios@1.14.0`
 - Cost efficiency: Target $0/month infrastructure using Vercel, Supabase, and GitHub Actions
@@ -86,6 +87,7 @@ We are building a high-precision price intelligence service for the Japanese One
 ## Near-Term Priorities
 
 - Replace temporary catalog mock pricing with real populated price intelligence data
+- Keep current pricing work centered on Card Rush-backed published data
 - Build a dedicated price intelligence service that returns:
   - current price
   - previous price
@@ -97,7 +99,7 @@ We are building a high-precision price intelligence service for the Japanese One
 
 ## Success Metrics
 
-- Verification: Stored JPY price points match Tokyo market listings within an acceptable margin
+- Verification: Stored JPY price points match Card Rush listings within an acceptable margin for the current scope
 - Cost: Stay within $0/month free-tier limits for Vercel and Supabase
-- Robustness: Scraper handles out-of-stock states without breaking charts or detail views
+- Robustness: Card Rush ingestion handles out-of-stock states without breaking charts or detail views
 - Consistency: Catalog and card detail pricing derive from the same domain logic

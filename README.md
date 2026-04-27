@@ -4,9 +4,15 @@ Project skeleton for a Tokyo secondary-market One Piece Card Game tracker with:
 
 - Next.js App Router frontend
 - Supabase-backed JPY price history
-- GitHub Actions scraping pipeline
+- GitHub Actions deployment-readiness workflow
 - Strict `pnpm` package management
 - `axios >= 1.6.0` for HTTP requests
+
+## Current Pricing Scope
+
+- Card Rush is the only active pricing source under the current project scope.
+- Card Rush remains manual-fixture only until an approved data-use path or authorized feed exists.
+- Yuyu-Tei and Mercari JP are deferred for current pricing work.
 
 ## Getting Started
 

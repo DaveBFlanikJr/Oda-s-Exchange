@@ -1,6 +1,6 @@
 # Price Ingestion Rollout
 
-This note captures the foundation for price ingestion work without changing production code. It is meant to keep later parser helpers, matcher helpers, and canonical derivation logic pointed at the same rules.
+This note captures the foundation for price ingestion work without changing production code. Under the current project scope, Card Rush is the only active pricing source, and it remains manual-fixture only until an approved data-use path or authorized feed exists. It is meant to keep later parser helpers, matcher helpers, and canonical derivation logic pointed at the same rules.
 
 ## Rollout Order
 
@@ -22,6 +22,7 @@ Minimum fields:
 - last review date
 
 Card Rush stays fixture-only until an approved data-use path or authorized feed exists.
+Yuyu-Tei and Mercari JP are deferred for current pricing work.
 
 ## Raw Observation Shape
 
@@ -61,7 +62,7 @@ Recommended guardrails:
 - record condition as part of the derivation basis
 - reject low-confidence matches from canonical writes
 - keep ambiguous matches available for review, not automatic publication
-- keep noisy peer-to-peer sources separate from the canonical lowest-price chart until median or trimmed-median semantics are chosen
+- keep non-Card Rush sources out of the canonical lowest-price chart under the current scope until a later source contract is explicitly approved and documented
 
 ## Fixture Rollout
 

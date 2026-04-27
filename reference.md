@@ -57,10 +57,16 @@ Notes:
 
 ## 4. Scraper Target Selectors
 
+Current pricing scope note:
+
+- Card Rush is the only active pricing source under the current project scope.
+- Card Rush remains manual-fixture only until an approved data-use path or authorized feed exists.
+- Yuyu-Tei is deferred for current pricing work.
+
 Known target URLs and patterns:
 
 - Card Rush JP: `https://www.cardrush-pokemon.jp/product-list?keyword=[ID]`
-- Yuyu-Tei: Search URL structure for One Piece must be confirmed and documented before scraper implementation
+- Yuyu-Tei: Search URL structure for One Piece must be confirmed and documented before any future pricing-scope expansion
 
 Scraper notes:
 
