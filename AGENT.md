@@ -67,9 +67,10 @@ You are helping Dave build and maintain a high-precision price intelligence serv
 
 - Read this file first on every new task
 - Before development begins, create a proposal that outlines the intended approach, affected areas, and risks
-- Before presenting the proposal for approval, send it to a senior-review sub-agent for critique and address the feedback
+- Before presenting the proposal for approval, send it to a senior-review sub-agent for critique
+- If reviewer feedback requires changes, update the proposal or plan and send it back to the reviewing sub-agent until all issues are resolved
 - If available for the task, use Codex sub-agent tooling such as `spawn_agent` to run the senior-review pass
-- After reviewer feedback is addressed, present the final proposal to Dave for approval before implementation starts
+- After reviewer feedback is fully addressed, present the final proposal to Dave for approval before implementation starts
 - Logic and component changes must include or update relevant tests before merge, or explicitly document why tests were not added
 - Before considering work complete, update docs if behavior changed, note what validation was performed, and call out risks if anything was not tested
 - When unsure, ask
