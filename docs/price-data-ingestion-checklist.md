@@ -107,6 +107,7 @@ Card Rush is the only active source of card price data under the current project
 - [ ] Add a test proving published default canonical rows in `price_history` produce non-empty card-detail overview, chart, and `marketListings`.
 - [x] Add fixture-based parser tests that can consume `tests/fixtures/price-ingestion/eb02-061-cases.json`.
 - [x] Cover manga, alt-art, mint, damaged, graded, sold-out, deck-product, and ambiguous examples in the fixture set.
+- [x] Model current Card Rush fixture match-confidence expectations explicitly in validation coverage, including illustrator-backed alt-art and ambiguous alt-art cases.
 - [x] Update stale DB smoke SQL so it matches the current `cards` schema.
 - [x] Replace scheduled collection with manual non-scraping deployment-readiness checks.
 
