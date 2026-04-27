@@ -48,3 +48,10 @@ This workspace covers shared backend and server-side application behavior. Use i
 - Public API endpoints should be rate limited
 - Writes must stay in protected server-side code or GitHub Actions, never public clients
 - Secrets such as `SUPABASE_SERVICE_ROLE_KEY` must never be exposed to the client
+
+## Testing Expectations
+
+- Changes to backend logic, route behavior, variant resolution, or pricing queries should include or update relevant tests before merge
+- Backend test files should use lowercase kebab-case and end with `.test.ts`
+- Prefer placing backend tests in `tests/` or the nearest existing backend-focused test location that keeps the scope obvious
+- If a backend change relies on manual validation instead of automated coverage, record the manual steps and call out the risk in the PR

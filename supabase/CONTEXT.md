@@ -94,3 +94,10 @@ create table public.price_history (
 - Public consumers should have read-only access patterns
 - Writes should be limited to service-role or protected server-side execution
 - Secrets such as `SUPABASE_SERVICE_ROLE_KEY` must never be exposed to the client
+
+## Testing Expectations
+
+- Schema or persistence changes should include or update relevant database validation before merge
+- Database smoke checks and SQL validation should live under `tests/db/`
+- Database-oriented TypeScript tests should use lowercase kebab-case and end with `.test.ts`
+- Migration-related validation should be called out explicitly in the PR, including any checks that were not run
