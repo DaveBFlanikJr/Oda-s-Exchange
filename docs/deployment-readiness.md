@@ -1,6 +1,6 @@
 # Deployment Readiness Runbook
 
-This runbook covers the post-PR-7 ingestion storage and publisher foundation. Card Rush remains manual-fixture only: do not run automated Card Rush scraping, do not fetch Card Rush pages from readiness jobs, and do not publish fixture-derived rows without an explicit operator command.
+This runbook covers the post-PR-7 ingestion storage and publisher foundation. The current pricing scope is Card Rush only. Card Rush remains manual-fixture only: do not run automated Card Rush scraping, do not fetch Card Rush pages from readiness jobs, and do not publish fixture-derived rows without an explicit operator command. Yuyu-Tei and Mercari JP are deferred for current pricing work.
 
 ## Migration Apply And Verify
 

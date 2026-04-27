@@ -24,7 +24,7 @@ This workspace covers the data pipeline from raw marketplace collection through 
 
 ## Responsibilities
 
-- Collect raw listings from Japanese market sources
+- Collect raw listings from approved Japanese market sources, with Card Rush as the only active pricing source under the current project scope
 - Enforce JPY-only extraction during collection and parsing
 - Normalize raw source payloads into stable internal structures
 - Classify variants and identities correctly
@@ -35,8 +35,9 @@ This workspace covers the data pipeline from raw marketplace collection through 
 ## Collection Rules
 
 - Tooling: Playwright with Node.js via `pnpm`
-- Execution target: GitHub Actions on a JST cron schedule
-- Schedule target: `0 0 * * *` JST
+- Current active source scope: Card Rush only
+- Current execution target: controlled manual fixture ingestion for Card Rush
+- Scheduled collection remains disabled for Card Rush until an approved data-use path or authorized feed exists
 - Scraping should remain internal to GitHub Actions or protected operational flows
 - Manual runs should use controlled workflow inputs
 - Overlapping scraper runs should be prevented with workflow concurrency controls
@@ -44,6 +45,7 @@ This workspace covers the data pipeline from raw marketplace collection through 
 ## Pipeline Rules
 
 - Canonical pricing data should be derived from validated marketplace observations, not ad hoc UI fallbacks
+- Current published pricing work should stay Card Rush-only until project scope changes
 - Price ingestion should support the same shared pricing source of truth used by catalog and card-detail surfaces
 - Fixture-driven validation should cover real parsing edge cases before rollout
 

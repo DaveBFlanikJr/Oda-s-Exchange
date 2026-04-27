@@ -4,7 +4,7 @@ This checklist tracks the remaining work for gathering actual OPTCG price data a
 
 ## Project Note
 
-Card Rush is the intended source of card price data. The ingestion work must preserve prices by card condition now, and expose condition-specific views later, not collapse every listing into one undifferentiated price. Matching is equally important: each Card Rush listing must connect to the correct card and variant already stored in our database before any price is published.
+Card Rush is the only active source of card price data under the current project scope. It remains manual-fixture only until an approved data-use path or authorized feed exists. The ingestion work must preserve prices by card condition now, and expose condition-specific views later, not collapse every listing into one undifferentiated price. Matching is equally important: each Card Rush listing must connect to the correct card and variant already stored in our database before any price is published.
 
 ## Current Foundation
 
@@ -12,7 +12,7 @@ Card Rush is the intended source of card price data. The ingestion work must pre
 - [x] Public reads and service-role writes are separated by RLS.
 - [x] Card detail v2 reads variant-level history and builds overview, chart, and live marketplace sections from real rows.
 - [x] GitHub Actions deployment-readiness workflow exists as a manual-only, non-scraping check.
-- [x] Scraper scaffolding exists for Card Rush, Yuyu-Tei, and Mercari JP.
+- [x] Scraper scaffolding exists for Card Rush, Yuyu-Tei, and Mercari JP, but only Card Rush is active for current pricing work.
 - [x] Known scraper schema drift is documented in `docs/live-marketplace-incident-report.md`.
 
 ## Source Compliance Gate
@@ -61,9 +61,9 @@ Card Rush is the intended source of card price data. The ingestion work must pre
 
 ## Source Adapters
 
-- [ ] Treat Card Rush as the primary intended price data source, subject to the compliance gate.
-- [ ] Build source-specific adapters only after each source passes the compliance gate.
-- [ ] Verify and document each source's approved collection method, listing URL shape, price field, sold-out marker, condition marker, and parse strategy.
+- [ ] Treat Card Rush as the only active intended price data source under the current scope, subject to the compliance gate.
+- [ ] Defer Yuyu-Tei and Mercari JP adapter work for current pricing scope unless the product scope changes.
+- [ ] Verify and document Card Rush's approved collection method, listing URL shape, price field, sold-out marker, condition marker, and parse strategy.
 - [x] For Card Rush, use only manually captured fixtures until approval or authorized feed access exists.
 - [ ] Keep `reference.md` updated whenever a source URL, selector, availability marker, or permission status changes.
 - [ ] Persist sold-out and error observations as raw observations with `price_jpy = null`.
@@ -96,7 +96,7 @@ Card Rush is the intended source of card price data. The ingestion work must pre
 - [ ] Decide whether live marketplace should remain strict: latest row per source only, no older fallback.
 - [ ] Align `/api/prices/[cardCode]` with the card-detail v2 pricing basis or mark it as legacy.
 - [ ] Remove deterministic catalog mock pricing once real `price_history` coverage is sufficient.
-- [ ] Keep catalog and detail pages aligned to the same pricing source of truth.
+- [ ] Keep catalog and detail pages aligned to the same Card Rush-backed pricing source of truth.
 
 ## Verification
 
