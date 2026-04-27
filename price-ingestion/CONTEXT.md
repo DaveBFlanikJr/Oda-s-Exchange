@@ -53,3 +53,11 @@ This workspace covers the data pipeline from raw marketplace collection through 
 - Flag materially suspicious under-market observations instead of trusting them blindly
 - Keep pricing logic centralized and reusable
 - Fixture coverage should reflect real source edge cases whenever possible
+
+## Testing Expectations
+
+- Changes to collection, normalization, classification, or canonical price generation should include or update relevant validation before merge
+- Parser and ingestion logic should be covered by fixture-driven checks wherever practical
+- Keep ingestion fixtures under `tests/fixtures/price-ingestion/`
+- Test or validation files should use lowercase kebab-case and end with `.test.ts` when they are standard TypeScript tests
+- If a change is validated only through scripts or manual inspection, document exactly what was run and what risk remains

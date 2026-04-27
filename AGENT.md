@@ -70,6 +70,7 @@ You are helping Dave build and maintain a high-precision price intelligence serv
 - Before presenting the proposal for approval, send it to a senior-review sub-agent for critique and address the feedback
 - If available for the task, use Codex sub-agent tooling such as `spawn_agent` to run the senior-review pass
 - After reviewer feedback is addressed, present the final proposal to Dave for approval before implementation starts
+- Logic and component changes must include or update relevant tests before merge, or explicitly document why tests were not added
 - Before considering work complete, update docs if behavior changed, note what validation was performed, and call out risks if anything was not tested
 - When unsure, ask
 
@@ -99,6 +100,9 @@ You are helping Dave build and maintain a high-precision price intelligence serv
 - Next.js special files should keep framework-required names such as `page.tsx`, `layout.tsx`, `route.ts`, and `loading.tsx`
 - React component exports should use PascalCase component names even when the file name is kebab-case
 - Markdown files should use lowercase kebab-case slugs: `[slug].md`
+- Test files should use lowercase kebab-case and end with `.test.ts` or `.test.tsx`
+- Database smoke checks and SQL validation files should stay under `tests/db/`
+- Price-ingestion fixtures should stay under `tests/fixtures/price-ingestion/`
 - Feature branches should use `feature/<name>`
 - Update branches should use `update/<name>`
 - Fix branches should use `fix/<name>`

@@ -48,3 +48,11 @@ This workspace covers shared frontend implementation patterns used across the ap
 - Loading: use shadcn `Skeleton` components for initial fetch states
 - Format frontend pricing with the shared helpers in `@/lib/pricing`
 - JPY is the default display currency; USD and EUR are reference conversions only
+
+## Testing Expectations
+
+- Changes to shared components, charts, or UI logic should include or update relevant tests before merge
+- Component test files should use lowercase kebab-case and end with `.test.tsx`
+- Shared frontend logic tests should use lowercase kebab-case and end with `.test.ts`
+- If the repo does not yet have a colocated frontend test file for the area, add the test in the nearest sensible test location and call out the placement in the PR
+- If tests cannot be added yet, explain why and document the remaining risk before asking for merge approval
