@@ -13,6 +13,10 @@ import {
   deriveCanonicalPriceCandidates,
   type PriceIngestionRawObservationInput
 } from "@/lib/pricing/ingestion/derive";
+import {
+  normalizeConditionScale,
+  normalizeListingKind
+} from "@/lib/pricing/ingestion/normalize";
 import { isCanonicalPricePointPublishable } from "@/lib/pricing/ingestion/repository";
 import { validateCanonicalPricePointInsert } from "@/lib/pricing/ingestion/validation";
 import type { PriceIngestionCanonicalPricePointRow } from "@/lib/pricing/ingestion/types";
@@ -174,20 +178,6 @@ function compareField<T>(
 
 function isSkippedField(caseId: string, field: string) {
   const skipped = new Map<string, Set<string>>([
-    [
-      "card_rush_standard_near_mint",
-      new Set(["match_confidence"])
-    ],
-    ["card_rush_manga_variant", new Set(["match_confidence"])],
-    ["card_rush_alt_art_illustrator_variant", new Set(["match_confidence"])],
-    ["card_rush_damaged_listing", new Set(["match_confidence"])],
-    ["card_rush_graded_listing", new Set(["match_confidence", "condition"])],
-    ["card_rush_sold_out_row", new Set(["match_confidence"])],
-    ["card_rush_deck_noise", new Set(["match_confidence"])],
-    [
-      "card_rush_ambiguous_variant",
-      new Set(["match_confidence", "should_enter_canonical", "excluded_reason"])
-    ]
   ]);
 
   return skipped.get(caseId)?.has(field) ?? false;
@@ -254,6 +244,299 @@ function addRegressionIssue(
   if (expected !== actual) {
     issues.push({ scenario, field, expected, actual });
   }
+}
+
+function addJsonRegressionIssue(
+  issues: RegressionIssue[],
+  scenario: string,
+  field: string,
+  expected: unknown,
+  actual: unknown
+) {
+  if (JSON.stringify(expected) !== JSON.stringify(actual)) {
+    issues.push({ scenario, field, expected, actual });
+  }
+}
+
+function runClassifierRuleCharacterizationChecks() {
+  const issues: RegressionIssue[] = [];
+  const cardCodeSummary = summarizeListingParse({
+    title: "eb02 061 モンキー・D・ルフィ SEC EB02/061"
+  });
+  const broadMarkerCases = [
+    {
+      marker: "sp",
+      expectedListingKind: "single_card",
+      expectedNormalizeListingKind: "single_card",
+      expectedAltArtMarkers: ["sp"]
+    },
+    {
+      marker: "special",
+      expectedListingKind: "single_card",
+      expectedNormalizeListingKind: "single_card",
+      expectedAltArtMarkers: ["special"]
+    },
+    {
+      marker: "seal",
+      expectedListingKind: "sealed_product",
+      expectedNormalizeListingKind: "sealed_product",
+      expectedAltArtMarkers: []
+    },
+    {
+      marker: "box",
+      expectedListingKind: "sealed_product",
+      expectedNormalizeListingKind: "sealed_product",
+      expectedAltArtMarkers: []
+    },
+    {
+      marker: "pack",
+      expectedListingKind: "sealed_product",
+      expectedNormalizeListingKind: "sealed_product",
+      expectedAltArtMarkers: []
+    },
+    {
+      marker: "deck",
+      expectedListingKind: "deck_product",
+      expectedNormalizeListingKind: "deck_product",
+      expectedAltArtMarkers: []
+    },
+    {
+      marker: "copy",
+      expectedListingKind: "proxy_custom",
+      expectedNormalizeListingKind: "single_card",
+      expectedAltArtMarkers: []
+    },
+    {
+      marker: "print",
+      expectedListingKind: "single_card",
+      expectedNormalizeListingKind: "single_card",
+      expectedAltArtMarkers: []
+    },
+    {
+      marker: "custom print",
+      expectedListingKind: "proxy_custom",
+      expectedNormalizeListingKind: "proxy_custom",
+      expectedAltArtMarkers: []
+    }
+  ] as const;
+  const embeddedMarkerCases = [
+    {
+      text: "display",
+      expectedListingKind: "sealed_product",
+      expectedNormalizeListingKind: "single_card",
+      expectedAltArtMarkers: []
+    },
+    {
+      text: "sealed",
+      expectedListingKind: "sealed_product",
+      expectedNormalizeListingKind: "sealed_product",
+      expectedAltArtMarkers: []
+    },
+    {
+      text: "decklist",
+      expectedListingKind: "single_card",
+      expectedNormalizeListingKind: "single_card",
+      expectedAltArtMarkers: []
+    },
+    {
+      text: "deck box",
+      expectedListingKind: "deck_product",
+      expectedNormalizeListingKind: "deck_product",
+      expectedAltArtMarkers: []
+    },
+    {
+      text: "reprint",
+      expectedListingKind: "single_card",
+      expectedNormalizeListingKind: "single_card",
+      expectedAltArtMarkers: []
+    },
+    {
+      text: "copycat",
+      expectedListingKind: "single_card",
+      expectedNormalizeListingKind: "single_card",
+      expectedAltArtMarkers: []
+    },
+    {
+      text: "packaging",
+      expectedListingKind: "single_card",
+      expectedNormalizeListingKind: "single_card",
+      expectedAltArtMarkers: []
+    }
+  ] as const;
+  const japaneseMarkerCases = [
+    {
+      marker: "美品",
+      expectedClassifierCondition: "mint",
+      expectedNormalizeCondition: "mint",
+      expectedClassifierListingKind: "single_card",
+      expectedNormalizeListingKind: "single_card"
+    },
+    {
+      marker: "状態A",
+      expectedClassifierCondition: "mint",
+      expectedNormalizeCondition: "mint",
+      expectedClassifierListingKind: "single_card",
+      expectedNormalizeListingKind: "single_card"
+    },
+    {
+      marker: "状態A-",
+      expectedClassifierCondition: "near_mint",
+      expectedNormalizeCondition: "near_mint",
+      expectedClassifierListingKind: "single_card",
+      expectedNormalizeListingKind: "single_card"
+    },
+    {
+      marker: "鑑定済",
+      expectedClassifierCondition: "graded",
+      expectedNormalizeCondition: "graded",
+      expectedClassifierListingKind: "graded_card",
+      expectedNormalizeListingKind: "graded_card"
+    },
+    {
+      marker: "未開封",
+      expectedClassifierCondition: "unknown",
+      expectedNormalizeCondition: "unknown",
+      expectedClassifierListingKind: "sealed_product",
+      expectedNormalizeListingKind: "sealed_product"
+    }
+  ] as const;
+
+  addRegressionIssue(
+    issues,
+    "classifier characterization: card code extraction",
+    "normalized_card_code",
+    "EB02-061",
+    cardCodeSummary.normalizedCardCode
+  );
+  addRegressionIssue(
+    issues,
+    "classifier characterization: card code extraction",
+    "deduped_card_code_count",
+    1,
+    cardCodeSummary.cardCodes.length
+  );
+  addJsonRegressionIssue(
+    issues,
+    "classifier characterization: illustrator marker extraction",
+    "illustrator_markers",
+    ["illust:Makitoshi"],
+    summarizeListingParse({
+      title: "EB02-061 モンキー・D・ルフィ SEC パラレル illust:Makitoshi"
+    }).illustratorMarkers
+  );
+  addRegressionIssue(
+    issues,
+    "classifier characterization: illustrator-backed alt art match confidence",
+    "confidence_band",
+    "medium",
+    summarizeListingParse({
+      title: "EB02-061 モンキー・D・ルフィ SEC パラレル illust:Makitoshi",
+      condition: "状態A"
+    }).confidenceBand
+  );
+  addRegressionIssue(
+    issues,
+    "classifier characterization: ambiguous alt art match confidence",
+    "confidence_band",
+    "low",
+    summarizeListingParse({
+      title: "EB02-061 モンキー・D・ルフィ SEC パラレル",
+      condition: "状態A"
+    }).confidenceBand
+  );
+
+  for (const testCase of broadMarkerCases) {
+    const summary = summarizeListingParse({
+      title: `EB02-061 モンキー・D・ルフィ SEC ${testCase.marker}`
+    });
+
+    addRegressionIssue(
+      issues,
+      `classifier characterization: broad marker ${testCase.marker}`,
+      "listing_kind",
+      testCase.expectedListingKind,
+      summary.listingKind
+    );
+    addRegressionIssue(
+      issues,
+      `classifier characterization: broad marker ${testCase.marker}`,
+      "normalize_listing_kind",
+      testCase.expectedNormalizeListingKind,
+      normalizeListingKind(testCase.marker)
+    );
+    addJsonRegressionIssue(
+      issues,
+      `classifier characterization: broad marker ${testCase.marker}`,
+      "alt_art_markers",
+      testCase.expectedAltArtMarkers,
+      summary.altArtMarkers
+    );
+  }
+
+  for (const testCase of embeddedMarkerCases) {
+    const summary = summarizeListingParse({
+      title: `EB02-061 モンキー・D・ルフィ SEC ${testCase.text}`
+    });
+
+    addRegressionIssue(
+      issues,
+      `classifier characterization: embedded marker ${testCase.text}`,
+      "listing_kind",
+      testCase.expectedListingKind,
+      summary.listingKind
+    );
+    addRegressionIssue(
+      issues,
+      `classifier characterization: embedded marker ${testCase.text}`,
+      "normalize_listing_kind",
+      testCase.expectedNormalizeListingKind,
+      normalizeListingKind(testCase.text)
+    );
+    addJsonRegressionIssue(
+      issues,
+      `classifier characterization: embedded marker ${testCase.text}`,
+      "alt_art_markers",
+      testCase.expectedAltArtMarkers,
+      summary.altArtMarkers
+    );
+  }
+
+  for (const testCase of japaneseMarkerCases) {
+    const summary = summarizeListingParse({
+      title: `EB02-061 モンキー・D・ルフィ SEC ${testCase.marker}`
+    });
+
+    addRegressionIssue(
+      issues,
+      `classifier characterization: Japanese marker ${testCase.marker}`,
+      "classifier_condition",
+      testCase.expectedClassifierCondition,
+      summary.conditionBucket
+    );
+    addRegressionIssue(
+      issues,
+      `classifier characterization: Japanese marker ${testCase.marker}`,
+      "normalize_condition",
+      testCase.expectedNormalizeCondition,
+      normalizeConditionScale(testCase.marker)
+    );
+    addRegressionIssue(
+      issues,
+      `classifier characterization: Japanese marker ${testCase.marker}`,
+      "classifier_listing_kind",
+      testCase.expectedClassifierListingKind,
+      summary.listingKind
+    );
+    addRegressionIssue(
+      issues,
+      `classifier characterization: Japanese marker ${testCase.marker}`,
+      "normalize_listing_kind",
+      testCase.expectedNormalizeListingKind,
+      normalizeListingKind(testCase.marker)
+    );
+  }
+
+  return issues;
 }
 
 function runCanonicalBasisRegressionChecks() {
@@ -570,6 +853,7 @@ async function main() {
   const supportedIssues = issues.filter((issue) => !isSkippedField(issue.caseId, issue.field));
   const skippedIssues = issues.filter((issue) => isSkippedField(issue.caseId, issue.field));
   const regressionIssues = [
+    ...runClassifierRuleCharacterizationChecks(),
     ...runCanonicalBasisRegressionChecks(),
     ...runPublisherEligibilityRegressionChecks()
   ];
@@ -585,7 +869,7 @@ async function main() {
   if (supportedIssues.length === 0) {
     if (regressionIssues.length === 0) {
       console.log(
-        `Validated ${fixture.cases.length} fixture cases, canonical basis checks, and publisher eligibility checks.`
+        `Validated ${fixture.cases.length} fixture cases, classifier rule characterization checks, canonical basis checks, and publisher eligibility checks.`
       );
 
       if (skips.length > 0) {
@@ -615,7 +899,7 @@ async function main() {
 
   if (regressionIssues.length > 0) {
     console.error(
-      `Found ${regressionIssues.length} canonical basis regression issue${regressionIssues.length === 1 ? "" : "s"}:`
+      `Found ${regressionIssues.length} regression or characterization issue${regressionIssues.length === 1 ? "" : "s"}:`
     );
 
     for (const issue of regressionIssues) {

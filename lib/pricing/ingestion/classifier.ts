@@ -3,6 +3,20 @@ import {
   type PriceIngestionConditionScale,
   type PriceIngestionListingKind
 } from "@/lib/pricing/ingestion/constants";
+import {
+  CLASSIFIER_ALT_ART_MARKER_RULES,
+  CLASSIFIER_CONDITION_MARKER_RULES,
+  CLASSIFIER_DECK_PRODUCT_MARKER_RULES,
+  CLASSIFIER_GRADED_MARKER_RULES,
+  CLASSIFIER_ILLUSTRATOR_PREFIX_PATTERNS,
+  CLASSIFIER_MANGA_MARKER_RULES,
+  CLASSIFIER_PROXY_CUSTOM_MARKER_RULES,
+  CLASSIFIER_SEALED_MARKER_RULES,
+  matchesTextTokenRule,
+  normalizeClassifierSearchText,
+  normalizeClassifierText,
+  type PriceIngestionMarkerCategory
+} from "@/lib/pricing/ingestion/rules";
 
 export type ListingKind = PriceIngestionListingKind;
 export type ConditionBucket = PriceIngestionConditionScale;
@@ -13,15 +27,7 @@ export type ConfidenceBand = (typeof CONFIDENCE_BANDS)[number];
 
 export type MarkerHit = {
   token: string;
-  category:
-    | "manga"
-    | "illustrator"
-    | "alt_art"
-    | "condition"
-    | "graded"
-    | "sealed"
-    | "deck_product"
-    | "proxy_custom";
+  category: PriceIngestionMarkerCategory;
 };
 
 export type ListingKindClassification = {
@@ -62,140 +68,8 @@ export type ListingParseSummary = {
   reasons: string[];
 };
 
-const MANGA_MARKERS = [
-  "漫画背景",
-  "漫画絵",
-  "コミックパラレル",
-  "コミパラ",
-  "漫画背景版",
-  "漫画絵版",
-  "マンガ背景",
-  "マンガ絵",
-  "manga background",
-  "manga art",
-  "comic background",
-  "comic art",
-  "comic parallel"
-] as const;
-
-const ILLUSTRATOR_PREFIXES = [
-  /(?:^|[\s([{'"/])illust[:：]\s*([^\s,;|/()]+(?:\s+[^\s,;|/()]+)*)/giu,
-  /(?:^|[\s([{'"/])illustration[:：]\s*([^\s,;|/()]+(?:\s+[^\s,;|/()]+)*)/giu,
-  /(?:^|[\s([{'"/])イラスト[:：]?\s*([^\s,;|/()]+(?:\s+[^\s,;|/()]+)*)/giu,
-  /(?:^|[\s([{'"/])作画[:：]?\s*([^\s,;|/()]+(?:\s+[^\s,;|/()]+)*)/giu
-];
-
-const ALT_ART_MARKERS = [
-  "alt art",
-  "alternate art",
-  "alt-art",
-  "alternate illustration",
-  "alternate",
-  "parallel",
-  "パラレル",
-  "sec/p",
-  "sr/p",
-  "sp",
-  "特別",
-  "special"
-] as const;
-
-const GRADED_MARKERS = [
-  "psa",
-  "bgs",
-  "cgc",
-  "ars",
-  "sgc",
-  "鑑定済",
-  "鑑定品",
-  "graded",
-  "grade"
-] as const;
-
-const SEALED_MARKERS = [
-  "未開封",
-  "sealed",
-  "seal",
-  "box",
-  "starter deck",
-  "starterdeck",
-  "deck",
-  "構築済み",
-  "デッキ",
-  "bundle",
-  "pack"
-] as const;
-
-const DECK_PRODUCT_MARKERS = [
-  "starter deck",
-  "構築済みデッキ",
-  "構築済み",
-  "デッキ",
-  "deck",
-  "trial deck",
-  "intro deck",
-  "bundle",
-  "box",
-  "display"
-] as const;
-
-const PROXY_CUSTOM_MARKERS = [
-  "proxy",
-  "custom",
-  "custom print",
-  "custom made",
-  "fake",
-  "replica",
-  "reproduction",
-  "copy",
-  "reprint",
-  "代行",
-  "自作",
-  "非公式",
-  "印刷",
-  "ステッカー",
-  "シール",
-  "トークン",
-  "サンプル"
-] as const;
-
-const CONDITION_MARKERS = [
-  { token: "mint", bucket: "mint" as const },
-  { token: "nm+", bucket: "mint" as const },
-  { token: "nm", bucket: "near_mint" as const },
-  { token: "near mint", bucket: "near_mint" as const },
-  { token: "美品", bucket: "near_mint" as const },
-  { token: "状態a-", bucket: "near_mint" as const },
-  { token: "状態a", bucket: "mint" as const },
-  { token: "lp", bucket: "light_play" as const },
-  { token: "light play", bucket: "light_play" as const },
-  { token: "状態b", bucket: "moderate_play" as const },
-  { token: "mp", bucket: "moderate_play" as const },
-  { token: "moderate play", bucket: "moderate_play" as const },
-  { token: "状態c", bucket: "damaged" as const },
-  { token: "damaged", bucket: "damaged" as const },
-  { token: "傷", bucket: "damaged" as const },
-  { token: "折れ", bucket: "damaged" as const },
-  { token: "ジャンク", bucket: "damaged" as const },
-  { token: "graded", bucket: "graded" as const },
-  { token: "鑑定済", bucket: "graded" as const }
-] as const;
-
 const CARD_CODE_PATTERN =
   /(?:^|[^A-Z0-9])([A-Z]{1,4}\s*[-_\/ ]?\s*\d{2}\s*[-_\/ ]?\s*\d{3}[A-Z]?)(?=$|[^A-Z0-9])/gi;
-
-function normalizeText(value: string) {
-  return value
-    .normalize("NFKC")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function normalizeSearchText(value: string) {
-  return normalizeText(value).toLowerCase();
-}
 
 function normalizeCardCodeToken(raw: string) {
   const stripped = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -235,19 +109,21 @@ export function normalizeCardCodeFromText(text: string) {
 }
 
 export function detectMangaMarkers(text: string) {
-  const normalizedText = normalizeSearchText(text);
-  const hits = MANGA_MARKERS.filter((marker) => normalizedText.includes(marker.toLowerCase()));
+  const normalizedText = normalizeClassifierSearchText(text);
+  const hits = CLASSIFIER_MANGA_MARKER_RULES
+    .filter((rule) => matchesTextTokenRule(normalizedText, rule))
+    .map((rule) => rule.token);
 
   return [...new Set(hits)];
 }
 
 export function detectIllustratorMarkers(text: string) {
   const hits = new Set<string>();
-  const normalizedText = normalizeText(text);
+  const normalizedText = normalizeClassifierText(text);
 
-  for (const pattern of ILLUSTRATOR_PREFIXES) {
+  for (const pattern of CLASSIFIER_ILLUSTRATOR_PREFIX_PATTERNS) {
     for (const match of normalizedText.matchAll(pattern)) {
-      const token = match[2]?.trim();
+      const token = match[1]?.trim();
 
       if (token) {
         hits.add(`illust:${token}`);
@@ -259,12 +135,12 @@ export function detectIllustratorMarkers(text: string) {
 }
 
 export function detectAltArtMarkers(text: string) {
-  const normalizedText = normalizeSearchText(text);
+  const normalizedText = normalizeClassifierSearchText(text);
   const hits = new Set<string>();
 
-  for (const marker of ALT_ART_MARKERS) {
-    if (normalizedText.includes(marker)) {
-      hits.add(marker);
+  for (const rule of CLASSIFIER_ALT_ART_MARKER_RULES) {
+    if (matchesTextTokenRule(normalizedText, rule)) {
+      hits.add(rule.token);
     }
   }
 
@@ -275,30 +151,30 @@ export function detectConditionBucket(text: string): {
   bucket: ConditionBucket;
   markers: string[];
 } {
-  const normalizedText = normalizeSearchText(text);
+  const normalizedText = normalizeClassifierSearchText(text);
   const hits = new Set<string>();
   let bucket: ConditionBucket = "unknown";
-  const conditionMarkers = [...CONDITION_MARKERS].sort(
+  const conditionMarkers = [...CLASSIFIER_CONDITION_MARKER_RULES].sort(
     (left, right) => right.token.length - left.token.length
   );
 
   for (const marker of conditionMarkers) {
-    if (!normalizedText.includes(marker.token.toLowerCase())) {
+    if (!matchesTextTokenRule(normalizedText, marker)) {
       continue;
     }
 
     hits.add(marker.token);
 
     if (bucket === "unknown") {
-      bucket = marker.bucket;
+      bucket = marker.output;
       continue;
     }
 
     const bucketRank = PRICE_INGESTION_CONDITION_SCALES.indexOf(bucket);
-    const nextBucketRank = PRICE_INGESTION_CONDITION_SCALES.indexOf(marker.bucket);
+    const nextBucketRank = PRICE_INGESTION_CONDITION_SCALES.indexOf(marker.output);
 
     if (nextBucketRank > bucketRank) {
-      bucket = marker.bucket;
+      bucket = marker.output;
     }
   }
 
@@ -309,12 +185,12 @@ export function detectConditionBucket(text: string): {
 }
 
 function collectMarkers(text: string): MarkerHit[] {
-  const normalizedText = normalizeSearchText(text);
+  const normalizedText = normalizeClassifierSearchText(text);
   const markers: MarkerHit[] = [];
 
-  for (const marker of MANGA_MARKERS) {
-    if (normalizedText.includes(marker.toLowerCase())) {
-      markers.push({ token: marker, category: "manga" });
+  for (const rule of CLASSIFIER_MANGA_MARKER_RULES) {
+    if (matchesTextTokenRule(normalizedText, rule)) {
+      markers.push({ token: rule.token, category: rule.output });
     }
   }
 
@@ -331,31 +207,133 @@ function collectMarkers(text: string): MarkerHit[] {
     markers.push({ token: marker, category: "condition" });
   }
 
-  for (const marker of GRADED_MARKERS) {
-    if (normalizedText.includes(marker.toLowerCase())) {
-      markers.push({ token: marker, category: "graded" });
+  for (const rule of CLASSIFIER_GRADED_MARKER_RULES) {
+    if (matchesTextTokenRule(normalizedText, rule)) {
+      markers.push({ token: rule.token, category: rule.output });
     }
   }
 
-  for (const marker of SEALED_MARKERS) {
-    if (normalizedText.includes(marker.toLowerCase())) {
-      markers.push({ token: marker, category: "sealed" });
+  for (const rule of CLASSIFIER_SEALED_MARKER_RULES) {
+    if (matchesTextTokenRule(normalizedText, rule)) {
+      markers.push({ token: rule.token, category: rule.output });
     }
   }
 
-  for (const marker of DECK_PRODUCT_MARKERS) {
-    if (normalizedText.includes(marker.toLowerCase())) {
-      markers.push({ token: marker, category: "deck_product" });
+  for (const rule of CLASSIFIER_DECK_PRODUCT_MARKER_RULES) {
+    if (matchesTextTokenRule(normalizedText, rule)) {
+      markers.push({ token: rule.token, category: rule.output });
     }
   }
 
-  for (const marker of PROXY_CUSTOM_MARKERS) {
-    if (normalizedText.includes(marker.toLowerCase())) {
-      markers.push({ token: marker, category: "proxy_custom" });
+  for (const rule of CLASSIFIER_PROXY_CUSTOM_MARKER_RULES) {
+    if (matchesTextTokenRule(normalizedText, rule)) {
+      markers.push({ token: rule.token, category: rule.output });
     }
   }
 
   return markers;
+}
+
+function deriveMatchConfidence({
+  cardCodes,
+  kind,
+  markers
+}: {
+  cardCodes: ParsedCardCode[];
+  kind: ListingKind;
+  markers: MarkerHit[];
+}) {
+  const reasons: string[] = [];
+  const hasManga = markers.some((marker) => marker.category === "manga");
+  const hasIllustrator = markers.some((marker) => marker.category === "illustrator");
+  const hasAltArt = markers.some((marker) => marker.category === "alt_art");
+
+  if (cardCodes.length === 0) {
+    reasons.push("no normalized card code found for match confidence");
+    return {
+      confidence: 20,
+      confidenceBand: "low" as const,
+      reasons
+    };
+  }
+
+  if (cardCodes.length > 1) {
+    reasons.push("multiple normalized card codes reduce match confidence");
+    return {
+      confidence: 35,
+      confidenceBand: "low" as const,
+      reasons
+    };
+  }
+
+  switch (kind) {
+    case "proxy_custom":
+    case "deck_product":
+    case "ambiguous":
+      reasons.push(`listing kind ${kind} is not a confident card match`);
+      return {
+        confidence: 25,
+        confidenceBand: "low" as const,
+        reasons
+      };
+    case "graded_card":
+      reasons.push("graded card listings stay medium confidence for variant matching");
+      return {
+        confidence: 60,
+        confidenceBand: "medium" as const,
+        reasons
+      };
+    case "sealed_product":
+      reasons.push("sealed product listings are not variant-precise matches");
+      return {
+        confidence: 30,
+        confidenceBand: "low" as const,
+        reasons
+      };
+    case "unknown":
+      reasons.push("unknown listing kind lowers match confidence");
+      return {
+        confidence: 30,
+        confidenceBand: "low" as const,
+        reasons
+      };
+    case "single_card":
+      break;
+  }
+
+  if (hasManga) {
+    reasons.push("manga markers provide a high-confidence treatment match");
+    return {
+      confidence: 90,
+      confidenceBand: "high" as const,
+      reasons
+    };
+  }
+
+  if (hasAltArt && hasIllustrator) {
+    reasons.push("alt-art marker plus illustrator evidence gives a medium-confidence treatment match");
+    return {
+      confidence: 65,
+      confidenceBand: "medium" as const,
+      reasons
+    };
+  }
+
+  if (hasAltArt) {
+    reasons.push("alt-art marker without illustrator evidence remains ambiguous");
+    return {
+      confidence: 40,
+      confidenceBand: "low" as const,
+      reasons
+    };
+  }
+
+  reasons.push("single-card listing with one normalized card code and no conflicting treatment markers");
+  return {
+    confidence: 90,
+    confidenceBand: "high" as const,
+    reasons
+  };
 }
 
 function scoreConfidence({
@@ -455,7 +433,7 @@ function scoreConfidence({
 }
 
 export function classifyListingKind(text: string): ListingKindClassification {
-  const normalizedText = normalizeSearchText(text);
+  const normalizedText = normalizeClassifierSearchText(text);
   const markers = collectMarkers(text);
   const hasGraded = markers.some((marker) => marker.category === "graded");
   const hasSealed = markers.some((marker) => marker.category === "sealed");
@@ -514,7 +492,7 @@ export function summarizeListingParse(input: ListingParseInput): ListingParseSum
   const parts = [input.title, input.condition, input.priceText, input.text]
     .filter((part): part is string => Boolean(part && part.trim()));
   const rawText = parts.join("\n");
-  const normalizedText = normalizeText(rawText);
+  const normalizedText = normalizeClassifierText(rawText);
   const cardCodes = extractCardCodes(rawText);
   const normalizedCardCode = cardCodes[0]?.code ?? null;
   const listingKind = classifyListingKind(rawText);
@@ -522,11 +500,16 @@ export function summarizeListingParse(input: ListingParseInput): ListingParseSum
   const mangaMarkers = detectMangaMarkers(rawText);
   const illustratorMarkers = detectIllustratorMarkers(rawText);
   const altArtMarkers = detectAltArtMarkers(rawText);
-  const confidence = scoreConfidence({
+  const parseConfidence = scoreConfidence({
     cardCodes,
     kind: listingKind.kind,
     markers: collectMarkers(rawText),
     conditionBucket: condition.bucket
+  });
+  const matchConfidence = deriveMatchConfidence({
+    cardCodes,
+    kind: listingKind.kind,
+    markers: collectMarkers(rawText)
   });
 
   return {
@@ -541,8 +524,8 @@ export function summarizeListingParse(input: ListingParseInput): ListingParseSum
     mangaMarkers,
     illustratorMarkers,
     altArtMarkers,
-    confidence: confidence.confidence,
-    confidenceBand: confidence.confidenceBand,
-    reasons: [...new Set([...listingKind.reasons, ...confidence.reasons])]
+    confidence: matchConfidence.confidence,
+    confidenceBand: matchConfidence.confidenceBand,
+    reasons: [...new Set([...listingKind.reasons, ...parseConfidence.reasons, ...matchConfidence.reasons])]
   };
 }
