@@ -63,7 +63,7 @@ These files are not automatically unsafe, but they deserve a quick human check b
 | --- | --- |
 | `AGENT.md` | Contains product direction, architecture notes, and security strategy. Good for a private/team repo; potentially too detailed for a public repo. |
 | `reference.md` | Contains source URLs, scraper notes, and ID normalization rules. Likely useful, but confirm the scraper target notes are okay to publish. |
-| `docs/live-marketplace-incident-report.md` | Contains detailed implementation analysis and absolute local path references from the current machine. Useful internally, but consider converting links to relative paths before public release. |
+| `docs/reference/live-marketplace-incident-report.md` | Contains detailed implementation analysis and absolute local path references from the current machine. Useful internally, but consider converting links to relative paths before public release. |
 | `.github/workflows/scraper.yml` | It correctly uses GitHub secrets, but the remote repo must define those secrets before the scheduled workflow can run. |
 
 ## Remote Secret Setup Required
