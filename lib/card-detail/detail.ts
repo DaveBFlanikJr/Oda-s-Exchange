@@ -14,6 +14,7 @@ import {
 import {
   getCardDetailSupabaseClient,
   loadCardById,
+  loadCanonicalPriceHistoryForVariant,
   loadPriceHistoryForVariant,
   loadVariantsForCard
 } from "@/lib/card-detail/repository";
@@ -56,13 +57,12 @@ export async function getCardDetail(
     options.variantId
   );
   const queryStartIso = getRecentJstWindowStartIso(CARD_DETAIL_WINDOW_DAYS);
-  const history = await loadPriceHistoryForVariant(
-    supabase,
-    resolvedVariant.row.id,
-    queryStartIso
-  );
-  const dailySeries = buildDailySeries(history);
-  const chartStatus = deriveChartStatus(dailySeries, history);
+  const [rawHistory, canonicalHistory] = await Promise.all([
+    loadPriceHistoryForVariant(supabase, resolvedVariant.row.id, queryStartIso),
+    loadCanonicalPriceHistoryForVariant(supabase, resolvedVariant.row.id, queryStartIso)
+  ]);
+  const dailySeries = buildDailySeries(canonicalHistory);
+  const chartStatus = deriveChartStatus(dailySeries, rawHistory);
   const chartFreshnessAt = dailySeries.at(-1)?.recordedAt ?? null;
   const chart = {
     status: chartStatus,
@@ -78,7 +78,7 @@ export async function getCardDetail(
       bucket: CARD_DETAIL_BUCKET
     }
   } satisfies CardDetailResponse["chart"];
-  const latestRowsBySource = getLatestRowsBySource(history);
+  const latestRowsBySource = getLatestRowsBySource(rawHistory);
   const marketListingsData = buildMarketListingsFromLatestRows(latestRowsBySource, resolvedVariant.row.card_id);
   const marketListings = {
     status: marketListingsData.length > 0 ? "ready" : "empty",

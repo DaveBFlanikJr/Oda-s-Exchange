@@ -89,7 +89,13 @@ Rules:
 - For retailer sources, prefer the best available ungraded condition bucket for the source/day instead of using the naive lowest listing.
 - For each JST day, the canonical day price is the minimum of those source-day values.
 
-The older `daily_best_available_jst` rule remains the legacy description of how existing `price_history` rows are aggregated for card-detail today. New ingestion work should not write raw or condition-mixed observations directly into `price_history`; it should first store raw observations, derive the condition-aware canonical basis, and then publish only canonical points to the UI-facing series. Until derived canonical writes land, the card-detail overview and chart continue to read the legacy `price_history` series.
+The runtime loader now uses a staged compatibility split:
+
+- `overview` and `chart` read only qualifying canonical published rows from `price_history`
+- those qualifying rows must match the resolved variant, use `daily_best_available_ungraded_best_condition_jst`, have `canonical_price_point_id`, have `source_day_jst`, be `available`, and have non-null `price_jpy`
+- raw in-window variant history still drives `partial` versus `empty` evidence and `marketListings`
+
+The chosen compatibility path for this correction was to keep `card-detail.v2` and update the emitted `overview.meta.pricingBasis` and `chart.meta.pricingBasis` labels in place after the lineage audit gate passed, rather than introducing a new response version first. New ingestion work should not write raw or condition-mixed observations directly into `price_history`; it should first store raw observations, derive the condition-aware canonical basis, and then publish only canonical points to the UI-facing series.
 
 Under the current project scope, Card Rush is the only active intended pricing source for published default UI pricing.
 
@@ -101,6 +107,8 @@ This canonical series drives:
 - `overview.data.change1dPct`
 - `overview.data.range7d`
 - `chart.data`
+
+If raw in-window history exists but the qualifying canonical daily series is empty, both `chart.status` and `overview.status` remain `partial` rather than collapsing to `empty`.
 
 ## Metric Rules
 

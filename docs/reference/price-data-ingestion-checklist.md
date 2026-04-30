@@ -13,7 +13,7 @@ Card Rush is the only active source of card price data under the current project
 - [x] Card detail v2 reads variant-level history and builds overview, chart, and live marketplace sections from real rows.
 - [x] GitHub Actions deployment-readiness workflow exists as a manual-only, non-scraping check.
 - [x] Scraper scaffolding exists for Card Rush, Yuyu-Tei, and Mercari JP, but only Card Rush is active for current pricing work.
-- [x] Known scraper schema drift is documented in `docs/live-marketplace-incident-report.md`.
+- [x] Known scraper schema drift is documented in `docs/reference/live-marketplace-incident-report.md`.
 
 ## Source Compliance Gate
 
@@ -49,7 +49,8 @@ Card Rush is the only active source of card price data under the current project
 - [x] Exclude damaged, graded, proxy/custom, sealed-only, deck-product, and ambiguous listings from default canonical UI pricing unless a product decision says otherwise.
 - [x] For retailer sources, prefer the best available ungraded condition bucket instead of the naive lowest listing.
 - [x] For noisy peer-to-peer sources such as Mercari JP, keep them out of the default canonical lowest-price chart until a separate marketplace signal, median, or trimmed-median basis is explicitly defined.
-- [ ] Update `lib/card-detail/series.ts` and any API contracts after derived canonical writes land.
+- [x] Update `lib/card-detail/series.ts` and reader contracts so overview/chart use the qualifying canonical subset while raw history still preserves status evidence.
+- [x] Add a lineage coverage audit step before changing emitted pricing metadata.
 
 ## Variant Identity Audit
 
@@ -94,9 +95,9 @@ Card Rush is the only active source of card price data under the current project
 ## Product And API Alignment
 
 - [ ] Decide whether live marketplace should remain strict: latest row per source only, no older fallback.
-- [ ] Align `/api/prices/[cardCode]` with the card-detail v2 pricing basis or mark it as legacy.
-- [ ] Remove deterministic catalog mock pricing once real `price_history` coverage is sufficient.
-- [ ] Keep catalog and detail pages aligned to the same Card Rush-backed pricing source of truth.
+- [x] Align `/api/prices/[cardCode]` with the shared canonical pricing-read helper while keeping it documented as a legacy shape-stable endpoint.
+- [x] Remove deterministic catalog mock pricing from production-facing readers.
+- [x] Keep catalog and detail pages aligned to the same qualifying canonical pricing source of truth for overview/chart metrics.
 
 ## Verification
 
@@ -104,6 +105,7 @@ Card Rush is the only active source of card price data under the current project
 - [x] Add a DB smoke test that inserts one valid available canonical price row.
 - [x] Add a DB smoke test that inserts one valid sold-out raw observation.
 - [x] Add a DB smoke test that publishes raw-backed canonical points into `price_history` idempotently through the default basis/source/day key.
+- [x] Prove same-day competing eligible Card Rush conditions resolve to the intended default canonical point before publishing to `price_history`.
 - [ ] Add a test proving published default canonical rows in `price_history` produce non-empty card-detail overview, chart, and `marketListings`.
 - [x] Add fixture-based parser tests that can consume `tests/fixtures/price-ingestion/eb02-061-cases.json`.
 - [x] Cover manga, alt-art, mint, damaged, graded, sold-out, deck-product, and ambiguous examples in the fixture set.
@@ -113,6 +115,6 @@ Card Rush is the only active source of card price data under the current project
 
 ## Foundation Docs
 
-- [x] Added `docs/price-ingestion-rollout.md` to describe compliance gating, raw observation capture, canonical derivation, and fixture rollout.
+- [x] Added `docs/reference/price-ingestion-rollout.md` to describe compliance gating, raw observation capture, canonical derivation, and fixture rollout.
 - [x] Added a lightweight fixture set at `tests/fixtures/price-ingestion/eb02-061-cases.json` for later pure-helper parser and matcher tests.
-- [x] Added `docs/deployment-readiness.md` for migration apply/verify, manual readiness workflow, secrets, and manual Card Rush fixture ingestion.
+- [x] Added `docs/reference/deployment-readiness.md` for migration apply/verify, manual readiness workflow, secrets, and manual Card Rush fixture ingestion.

@@ -24,6 +24,7 @@
     "test:db:cards": "bash tests/db/run-card-smoke.sh",
     "migrations:verify": "bash tests/db/run-card-smoke.sh",
     "ingest:card-rush-fixture": "tsx scripts/price-ingestion/ingest-card-rush-fixture.ts",
+    "audit:pricing-lineage": "node --import tsx scripts/price-ingestion/lineage-coverage-audit.ts",
     "audit:variant-identity": "tsx scripts/price-ingestion/variant-identity-audit.ts",
     "scrape": "tsx scripts/scrape/index.ts",
     "scrape:validate": "tsx scripts/scrape/validate-env.ts"

@@ -2,6 +2,15 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS,
+  PRICE_INGESTION_PARSER_VERSION
+} from "@/lib/pricing/ingestion/constants";
+import {
+  deriveCanonicalPriceCandidates,
+  type PriceIngestionRawObservationInput
+} from "@/lib/pricing/ingestion/derive";
+
 type Issue = {
   area: string;
   message: string;
@@ -38,6 +47,13 @@ type ManualFixture = {
   cardCode: string;
   observedAt: string;
   parserVersion: string;
+  expectedCanonicalSelection: {
+    pricing_basis: string;
+    source_listing_id: string;
+    source_variant_key: string;
+    condition: string;
+    source_day_jst: string;
+  };
   cases: ManualFixtureCase[];
 };
 
@@ -93,6 +109,18 @@ const expectedManualFixtureCases = new Map<string, ExpectedManualFixtureCase>([
       availabilityStatus: "available",
       listingKind: "single_card",
       condition: "near_mint",
+      matchConfidence: "high",
+      shouldInsertRaw: true,
+      shouldPublishCanonical: true
+    }
+  ],
+  [
+    "card_rush_manual_standard_mint_competitor",
+    {
+      sourceVariantKey: "STD",
+      availabilityStatus: "available",
+      listingKind: "single_card",
+      condition: "mint",
       matchConfidence: "high",
       shouldInsertRaw: true,
       shouldPublishCanonical: true
@@ -223,6 +251,54 @@ function getWorkflowTriggerEvents(workflow: string) {
   return events;
 }
 
+function parsePriceJpy(
+  rawPriceText: string | null,
+  availabilityStatus: ManualFixtureCase["availability_status"]
+) {
+  if (availabilityStatus !== "available") {
+    return null;
+  }
+
+  const digits = rawPriceText?.replace(/[^\d]/g, "") ?? "";
+
+  if (!digits) {
+    return null;
+  }
+
+  const price = Number.parseInt(digits, 10);
+  return Number.isFinite(price) ? price : null;
+}
+
+function toDerivationObservation(
+  fixture: ManualFixture,
+  testCase: ManualFixtureCase
+): PriceIngestionRawObservationInput {
+  return {
+    id: testCase.id,
+    source: "card_rush",
+    sourceListingId: testCase.source_listing_id,
+    sourceUrl: testCase.source_url,
+    observedAt: fixture.observedAt,
+    parserVersion: PRICE_INGESTION_PARSER_VERSION,
+    normalizedCardCode: fixture.cardCode,
+    rawTitle: testCase.raw_title,
+    rawCondition: testCase.raw_condition,
+    rawPriceText: testCase.raw_price_text,
+    priceJpy: parsePriceJpy(testCase.raw_price_text, testCase.availability_status),
+    availabilityStatus: testCase.availability_status,
+    listingKind: testCase.expected.listing_kind as PriceIngestionRawObservationInput["listingKind"],
+    conditionScale: testCase.expected.condition as PriceIngestionRawObservationInput["conditionScale"],
+    rawTextSnapshot: testCase.raw_text_snapshot,
+    snapshotRef: testCase.snapshot_ref,
+    excludedReason: testCase.expected.excluded_reason ?? null,
+    matchConfidence: testCase.expected.match_confidence as PriceIngestionRawObservationInput["matchConfidence"],
+    matchedVariantId: testCase.source_variant_key
+      ? `fixture-variant-${testCase.source_variant_key}`
+      : null,
+    sourceVariantKey: testCase.source_variant_key
+  };
+}
+
 async function validateWorkflow(issues: Issue[]) {
   const workflow = await readFile(workflowPath, "utf8");
   const triggerEvents = getWorkflowTriggerEvents(workflow);
@@ -335,6 +411,18 @@ async function validatePackageScripts(issues: Issue[]) {
       "package.json should expose migrations:verify for deployment migration verification"
     );
   }
+
+  if (
+    !scripts["audit:pricing-lineage"]?.includes(
+      "scripts/price-ingestion/lineage-coverage-audit.ts"
+    )
+  ) {
+    addIssue(
+      issues,
+      "package.json",
+      "package.json should expose audit:pricing-lineage for canonical lineage coverage checks before metadata cutover"
+    );
+  }
 }
 
 async function validateMigrationsAndSmokeSql(issues: Issue[]) {
@@ -371,6 +459,20 @@ async function validateMigrationsAndSmokeSql(issues: Issue[]) {
     dbSmoke,
     /source_compliance_records[\s\S]*card_rush[\s\S]*restricted[\s\S]*manual_fixture[\s\S]*scheduled_collection_enabled/,
     "DB smoke should verify Card Rush compliance state before fixture ingestion or publishing"
+  );
+  requireMatch(
+    issues,
+    "db smoke",
+    dbSmoke,
+    /db-smoke-eb02-061-available-near-mint[\s\S]*db-smoke-eb02-061-available-mint/,
+    "DB smoke should include same-day near-mint and mint raw observations for condition-aware publish proof"
+  );
+  requireMatch(
+    issues,
+    "db smoke",
+    dbSmoke,
+    /condition-aware best-condition update from competing raw observations/,
+    "DB smoke should prove a same-day condition-aware canonical update before publishing to price_history"
   );
   requireMatch(
     issues,
@@ -437,6 +539,17 @@ async function validateManualFixture(issues: Issue[]) {
       issues,
       "manual fixture",
       `manual fixture should contain exactly ${expectedManualFixtureCases.size} curated cases`
+    );
+  }
+
+  if (
+    fixture.expectedCanonicalSelection.pricing_basis !==
+    PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS
+  ) {
+    addIssue(
+      issues,
+      "manual fixture",
+      "manual fixture expectedCanonicalSelection must target the default canonical pricing basis"
     );
   }
 
@@ -608,6 +721,58 @@ async function validateManualFixture(issues: Issue[]) {
         issues,
         "manual fixture",
         `manual fixture should cover excluded_reason=${exclusion}`
+      );
+    }
+  }
+
+  const publishableCompetitionCases = fixture.cases.filter(
+    (testCase) =>
+      testCase.source_variant_key === fixture.expectedCanonicalSelection.source_variant_key &&
+      testCase.expected.should_publish_canonical
+  );
+
+  if (publishableCompetitionCases.length < 2) {
+    addIssue(
+      issues,
+      "manual fixture",
+      "manual fixture should include at least two publishable competing cases for the canonical selection proof"
+    );
+  }
+
+  const derivedCandidates = deriveCanonicalPriceCandidates({
+    observations: fixture.cases.map((testCase) => toDerivationObservation(fixture, testCase))
+  });
+  const expectedCandidate = derivedCandidates.find(
+    (candidate) =>
+      candidate.basis === fixture.expectedCanonicalSelection.pricing_basis &&
+      candidate.sourceDayJst === fixture.expectedCanonicalSelection.source_day_jst &&
+      candidate.observation.sourceListingId ===
+        fixture.expectedCanonicalSelection.source_listing_id
+  );
+
+  if (!expectedCandidate) {
+    addIssue(
+      issues,
+      "manual fixture",
+      "manual fixture should derive the expected canonical selection from the competing condition cases"
+    );
+  } else {
+    if (expectedCandidate.conditionScale !== fixture.expectedCanonicalSelection.condition) {
+      addIssue(
+        issues,
+        "manual fixture",
+        `expected canonical selection condition should be ${fixture.expectedCanonicalSelection.condition}`
+      );
+    }
+
+    if (
+      expectedCandidate.observation.sourceVariantKey !==
+      fixture.expectedCanonicalSelection.source_variant_key
+    ) {
+      addIssue(
+        issues,
+        "manual fixture",
+        `expected canonical selection source_variant_key should be ${fixture.expectedCanonicalSelection.source_variant_key}`
       );
     }
   }
