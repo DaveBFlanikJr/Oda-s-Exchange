@@ -1,4 +1,5 @@
 import { getServerSupabaseClient } from "@/lib/supabase/server-client";
+import { getCanonicalCatalogPriceSnapshots } from "@/lib/pricing/queries";
 import type { VariantType } from "@/lib/types/cards";
 
 export type CatalogItem = {
@@ -31,12 +32,6 @@ type VariantRow = {
         rarity_base: string | null;
       }>
     | null;
-};
-
-type PriceHistoryRow = {
-  variant_id: string;
-  price_jpy: number | null;
-  recorded_at: string;
 };
 
 type CatalogSupabaseClient = ReturnType<typeof getServerSupabaseClient>;
@@ -139,73 +134,11 @@ async function getCatalogPriceSnapshots(
   supabase: CatalogSupabaseClient,
   variants: VariantRow[]
 ) {
-  const snapshots = new Map<
-    string,
-    { currentPriceJpy: number; priceChange24h: number | null }
-  >();
   const variantIds = variants.map((variant) => variant.id);
 
   if (variantIds.length === 0) {
-    return snapshots;
+    return new Map<string, { currentPriceJpy: number; priceChange24h: number | null }>();
   }
 
-  const { data, error } = await supabase
-    .from("price_history")
-    .select("variant_id, price_jpy, recorded_at")
-    .in("variant_id", variantIds)
-    .order("recorded_at", { ascending: false });
-
-  if (error) {
-    throw new Error(`Failed to load catalog prices: ${error.message}`);
-  }
-
-  const priceRows = (data as PriceHistoryRow[]) ?? [];
-  const rowsByVariant = new Map<string, PriceHistoryRow[]>();
-  const variantsByCardId = new Map<string, VariantRow[]>();
-
-  for (const row of priceRows) {
-    const rows = rowsByVariant.get(row.variant_id) ?? [];
-    rows.push(row);
-    rowsByVariant.set(row.variant_id, rows);
-  }
-
-  for (const variant of variants) {
-    const siblingVariants = variantsByCardId.get(variant.card_id) ?? [];
-    siblingVariants.push(variant);
-    variantsByCardId.set(variant.card_id, siblingVariants);
-  }
-
-  for (const variant of variants) {
-    const ownRows = (rowsByVariant.get(variant.id) ?? []).filter(
-      (row): row is PriceHistoryRow & { price_jpy: number } => row.price_jpy !== null
-    );
-    const siblingRows = (variantsByCardId.get(variant.card_id) ?? [])
-      .flatMap((sibling) => rowsByVariant.get(sibling.id) ?? [])
-      .filter(
-        (row): row is PriceHistoryRow & { price_jpy: number } => row.price_jpy !== null
-      )
-      .sort(
-        (left, right) =>
-          new Date(right.recorded_at).getTime() - new Date(left.recorded_at).getTime()
-      );
-    const availableRows = ownRows.length > 0 ? ownRows : siblingRows;
-
-    if (availableRows.length === 0) {
-      continue;
-    }
-
-    const currentPriceJpy = availableRows[0].price_jpy;
-    const previousPriceJpy = availableRows[1]?.price_jpy ?? null;
-    const priceChange24h =
-      previousPriceJpy && previousPriceJpy > 0
-        ? Number((((currentPriceJpy - previousPriceJpy) / previousPriceJpy) * 100).toFixed(2))
-        : null;
-
-    snapshots.set(variant.id, {
-      currentPriceJpy,
-      priceChange24h
-    });
-  }
-
-  return snapshots;
+  return getCanonicalCatalogPriceSnapshots(supabase, variantIds);
 }

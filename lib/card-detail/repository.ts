@@ -1,3 +1,4 @@
+import { listQualifiedCanonicalPriceHistoryRows } from "@/lib/pricing/queries";
 import { getServerSupabaseClient } from "@/lib/supabase/server-client";
 import type {
   CardRow,
@@ -66,6 +67,18 @@ export async function loadPriceHistoryForVariant(
   }
 
   return (data as PriceHistoryRow[]) ?? [];
+}
+
+export async function loadCanonicalPriceHistoryForVariant(
+  supabase: CardDetailSupabaseClient,
+  variantId: string,
+  queryStartIso: string
+) {
+  return (await listQualifiedCanonicalPriceHistoryRows(
+    supabase,
+    [variantId],
+    { recordedAtGte: queryStartIso }
+  )) satisfies PriceHistoryRow[];
 }
 
 export async function loadVariantOwnership(

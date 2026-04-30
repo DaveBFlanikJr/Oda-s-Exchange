@@ -15,7 +15,10 @@ import {
 } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
-import { CARD_DETAIL_LEGACY_PRICE_HISTORY_BASIS } from "@/lib/card-detail/constants";
+import {
+  CARD_DETAIL_LEGACY_PRICE_HISTORY_BASIS,
+  CARD_DETAIL_PRICING_BASIS
+} from "@/lib/card-detail/constants";
 import { formatCurrency, formatJPY } from "@/lib/pricing";
 import type { CardDetailResponse } from "@/lib/card-detail/detail";
 import type { VariantType } from "@/lib/types/cards";
@@ -58,7 +61,7 @@ export function CardDetailTerminal({
       }
     },
     meta: {
-      pricingBasis: data.overview?.meta?.pricingBasis ?? CARD_DETAIL_LEGACY_PRICE_HISTORY_BASIS,
+      pricingBasis: data.overview?.meta?.pricingBasis ?? CARD_DETAIL_PRICING_BASIS,
       comparisonStatus: data.overview?.meta?.comparisonStatus ?? "missing",
       freshnessAt: data.overview?.meta?.freshnessAt ?? null,
       truncated: data.overview?.meta?.truncated ?? false,
@@ -73,7 +76,7 @@ export function CardDetailTerminal({
     status: data.chart?.status ?? "empty",
     data: data.chart?.data ?? [],
     meta: {
-      pricingBasis: data.chart?.meta?.pricingBasis ?? CARD_DETAIL_LEGACY_PRICE_HISTORY_BASIS,
+      pricingBasis: data.chart?.meta?.pricingBasis ?? CARD_DETAIL_PRICING_BASIS,
       freshnessAt: data.chart?.meta?.freshnessAt ?? null,
       truncated: data.chart?.meta?.truncated ?? false,
       simulated: data.chart?.meta?.simulated ?? false,
@@ -148,9 +151,11 @@ export function CardDetailTerminal({
                     {formatMetricCurrency(data.overview.data.lastPriceJpy)}
                   </p>
                   <p className="panel-copy">
-                    {overview.meta.pricingBasis === CARD_DETAIL_LEGACY_PRICE_HISTORY_BASIS
-                      ? "Daily best available (JST)"
-                      : "Pricing basis unavailable"}
+                    {overview.meta.pricingBasis === CARD_DETAIL_PRICING_BASIS
+                      ? "Daily best available ungraded best condition (JST)"
+                      : overview.meta.pricingBasis === CARD_DETAIL_LEGACY_PRICE_HISTORY_BASIS
+                        ? "Daily best available (JST)"
+                        : "Pricing basis unavailable"}
                   </p>
                   <span className={`catalog-trend ${getTrendClass(overview.data.change1dPct)}`}>
                     {formatPercentChange(overview.data.change1dPct)}

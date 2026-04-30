@@ -7,6 +7,10 @@ import type {
   SectionStatus
 } from "@/lib/card-detail/types";
 
+function getSeriesDayKey(row: PriceHistoryRow) {
+  return row.source_day_jst ?? getJstDayKey(row.recorded_at);
+}
+
 export function buildDailySeries(history: PriceHistoryRow[]): DailySeriesPoint[] {
   const latestValidRowsBySourceDay = new Map<string, PriceHistoryRow>();
 
@@ -15,7 +19,7 @@ export function buildDailySeries(history: PriceHistoryRow[]): DailySeriesPoint[]
       continue;
     }
 
-    const day = getJstDayKey(row.recorded_at);
+    const day = getSeriesDayKey(row);
     const key = `${row.source}:${day}`;
     const existing = latestValidRowsBySourceDay.get(key);
 
@@ -30,7 +34,7 @@ export function buildDailySeries(history: PriceHistoryRow[]): DailySeriesPoint[]
   const candidateRowsByDay = new Map<string, PriceHistoryRow[]>();
 
   for (const row of latestValidRowsBySourceDay.values()) {
-    const day = getJstDayKey(row.recorded_at);
+    const day = getSeriesDayKey(row);
     const rows = candidateRowsByDay.get(day) ?? [];
     rows.push(row);
     candidateRowsByDay.set(day, rows);
@@ -85,7 +89,7 @@ export function deriveOverviewStatus(
   chartStatus: SectionStatus
 ): SectionStatus {
   if (!latestPoint || rangePoints.length === 0) {
-    return "empty";
+    return chartStatus === "partial" ? "partial" : "empty";
   }
 
   if (chartStatus === "partial" || !previousDayPoint || rangePoints.length < 7) {

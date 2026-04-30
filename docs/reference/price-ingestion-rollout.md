@@ -54,7 +54,7 @@ Normalized parser output should carry the structured parse summary needed to rep
 
 ## Canonical Derivation
 
-The target canonical ingestion contract is `daily_best_available_ungraded_best_condition_jst`: eligible raw observations are grouped by variant, source, and JST day, source/day candidates prefer the best ungraded condition bucket, and the canonical day price is the minimum across eligible source/day values. Damaged, graded, proxy/custom, sealed-only, deck-product, and ambiguous observations stay out of this default basis unless a separate product decision defines how to show them. Current card-detail overview and chart reads still use the legacy `price_history` aggregation until derived canonical writes land.
+The target canonical ingestion contract is `daily_best_available_ungraded_best_condition_jst`: eligible raw observations are grouped by variant, source, and JST day, source/day candidates prefer the best ungraded condition bucket, and the canonical day price is the minimum across eligible source/day values. Damaged, graded, proxy/custom, sealed-only, deck-product, and ambiguous observations stay out of this default basis unless a separate product decision defines how to show them. Current runtime readers now use the qualifying canonical published subset for `/api/prices`, catalog pricing, and card-detail overview/chart, while card-detail status evidence and `marketListings` still inspect the broader raw in-window variant history.
 
 Recommended guardrails:
 
@@ -81,6 +81,8 @@ It should cover:
 
 Later pure-helper tests can load those fixtures without needing any production imports.
 
+The manual Card Rush readiness fixture in `tests/fixtures/price-ingestion/card-rush-manual-ingestion-eb02-061.json` should also include at least one same-day competing eligible condition pair for the same variant/source/day so the default canonical basis can be proven to prefer the intended best ungraded condition before publishing.
+
 ## Deployment Readiness
 
 Deployment readiness is gated by migration verification before any fixture write:
@@ -88,7 +90,11 @@ Deployment readiness is gated by migration verification before any fixture write
 1. Apply migrations with `supabase db push` or the provider migration flow.
 2. Run `pnpm migrations:verify`.
 3. Run manual fixture ingestion only from committed fixture JSON.
+4. After any publish intended for reader cutover, run `pnpm audit:pricing-lineage` before changing emitted pricing metadata or declaring the rollout complete.
+5. The chosen compatibility path is to keep `card-detail.v2` and update its emitted pricing-basis metadata in place after the audit passes, rather than creating a new response version for this correction.
 
 The manual Card Rush fixture path is `pnpm ingest:card-rush-fixture`. It reads `tests/fixtures/price-ingestion/card-rush-manual-ingestion-eb02-061.json` by default, requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, verifies Card Rush remains `restricted` / `manual_fixture` / unscheduled, writes raw observations, derives canonical candidates, and publishes to `price_history` only with `--publish`.
+
+`pnpm audit:pricing-lineage` measures how many currently visible `price_history` rows would be excluded by the qualifying canonical reader predicate, reports lineage/source-day gaps, and supports optional `--card-code` / `--window-days` scoping for cutover review.
 
 The GitHub readiness workflow is manual-only and non-scraping. It does not install browser tooling, does not call `pnpm scrape`, and does not receive service-role write credentials. It runs `pnpm migrations:verify` with `DATABASE_URL` so stale migration state is caught before manual fixture work.

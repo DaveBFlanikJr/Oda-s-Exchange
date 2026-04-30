@@ -149,6 +149,7 @@ export type PriceHistoryRow = {
   price_jpy: number | null;
   availability_status: AvailabilityStatus;
   recorded_at: string;
+  source_day_jst?: string | null;
 };
 
 export type CardDetailOptions = {

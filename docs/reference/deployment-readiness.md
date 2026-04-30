@@ -60,3 +60,24 @@ SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm ingest:card-rush-fixture --f
 ```
 
 The script reads local committed fixture JSON only. It verifies the Card Rush compliance row, resolves `card_variants` by `cardCode` and `source_variant_key`, inserts raw observations, derives canonical candidates, and publishes only when `--publish` is present.
+
+The curated manual fixture also includes same-day competing eligible Card Rush conditions for the same variant so readiness validation can prove the default canonical publish path prefers the intended best ungraded condition before publishing to `price_history`.
+
+## Lineage Audit Gate
+
+Before changing emitted card-detail pricing metadata or calling the reader cutover complete, run the lineage coverage audit against the published rows you expect readers to use:
+
+```bash
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm audit:pricing-lineage
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm audit:pricing-lineage --window-days 35
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm audit:pricing-lineage --card-code EB02-061 --window-days 35
+```
+
+The audit reports:
+
+- visible available `price_history` rows in scope
+- how many already satisfy the qualifying canonical reader predicate
+- how many would be excluded
+- whether exclusions are driven by missing `canonical_price_point_id`, missing `source_day_jst`, or legacy pricing-basis rows
+
+The chosen rollout path is to keep `card-detail.v2` and flip its emitted metadata in place once this audit shows acceptable coverage for the intended rollout scope. Do not make that metadata change before the audit passes.
