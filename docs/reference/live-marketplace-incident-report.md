@@ -82,7 +82,7 @@ The product rules explicitly say:
 
 See:
 
-- [docs/card-detail-v2.md](/Users/daveflanik/Desktop/Oda’s-Exchange/docs/card-detail-v2.md#L112)
+- [docs/reference/card-detail-v2.md](/Users/daveflanik/Desktop/Oda’s-Exchange/docs/reference/card-detail-v2.md:112)
 
 This makes the panel highly sensitive to ingestion gaps. A single stale or missing newest row turns into an empty marketplace state.
 
