@@ -37,7 +37,18 @@ export async function getCardDetail(
   cardCode: string,
   options: CardDetailOptions = {}
 ): Promise<CardDetailResponse | null> {
-  const supabase = getCardDetailSupabaseClient();
+  return getCardDetailWithSupabase(
+    getCardDetailSupabaseClient(),
+    cardCode,
+    options
+  );
+}
+
+export async function getCardDetailWithSupabase(
+  supabase: ReturnType<typeof getCardDetailSupabaseClient>,
+  cardCode: string,
+  options: CardDetailOptions = {}
+): Promise<CardDetailResponse | null> {
   const normalizedCardCode = cardCode.trim().toUpperCase();
   const variants = await loadVariantsForCard(supabase, normalizedCardCode);
 

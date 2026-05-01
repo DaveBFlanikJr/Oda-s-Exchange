@@ -1,0 +1,76 @@
+{
+  "schema": "card-rush-manual-ingestion-fixture/v1",
+  "description": "Treatment-safe Card Rush manual fixture for a card-day with no qualifying canonical rows.",
+  "source": "card_rush",
+  "sourcePolicyUrl": "https://cardrush.media/data_policy",
+  "captureMethod": "manual_fixture",
+  "cardCode": "ST01-001",
+  "observedAt": "2026-04-19T00:00:00.000+09:00",
+  "parserVersion": "manual-card-rush-fixture.v2",
+  "expectedCanonicalSelections": [],
+  "cases": [
+    {
+      "id": "card_rush_manual_st01_sold_out",
+      "source_listing_id": "manual-st01-001-sold-out-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=ST01-001",
+      "source_variant_key": "STD",
+      "raw_title": "ST01-001 standard single card listing",
+      "raw_condition": "Mint",
+      "raw_price_text": "JPY 300",
+      "availability_status": "sold_out",
+      "raw_text_snapshot": "Manual fixture evidence: ST01-001 sold-out listing with no qualifying live price.",
+      "snapshot_ref": "manual-fixtures/card-rush/2026-04-19/st01-001-sold-out.txt",
+      "expected": {
+        "normalized_card_code": "ST01-001",
+        "listing_kind": "single_card",
+        "condition": "mint",
+        "match_confidence": "high",
+        "excluded_reason": "availability_status",
+        "should_insert_raw": true,
+        "should_publish_canonical": false
+      }
+    },
+    {
+      "id": "card_rush_manual_st01_deck_noise",
+      "source_listing_id": "manual-st01-001-deck-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=ST01-001",
+      "source_variant_key": null,
+      "raw_title": "ST01-001 included in deck product bundle",
+      "raw_condition": "New",
+      "raw_price_text": "JPY 1200",
+      "availability_status": "available",
+      "raw_text_snapshot": "Manual fixture evidence: ST01-001 deck product noise.",
+      "snapshot_ref": "manual-fixtures/card-rush/2026-04-19/st01-001-deck-noise.txt",
+      "expected": {
+        "normalized_card_code": "ST01-001",
+        "listing_kind": "deck_product",
+        "condition": "unknown",
+        "match_confidence": "excluded",
+        "excluded_reason": "deck_product",
+        "should_insert_raw": true,
+        "should_publish_canonical": false
+      }
+    },
+    {
+      "id": "card_rush_manual_st01_ambiguous_variant",
+      "source_listing_id": "manual-st01-001-ambiguous-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=ST01-001",
+      "source_variant_key": null,
+      "raw_title": "ST01-001 parallel single card listing",
+      "raw_condition": "Mint",
+      "raw_price_text": "JPY 550",
+      "availability_status": "available",
+      "raw_text_snapshot": "Manual fixture evidence: ST01-001 ambiguous treatment listing that should not publish.",
+      "snapshot_ref": "manual-fixtures/card-rush/2026-04-19/st01-001-ambiguous-variant.txt",
+      "expected": {
+        "normalized_card_code": "ST01-001",
+        "listing_kind": "single_card",
+        "condition": "mint",
+        "match_confidence": "excluded",
+        "excluded_reason": "ambiguous_variant",
+        "should_insert_raw": true,
+        "should_publish_canonical": false
+      }
+    }
+  ]
+}

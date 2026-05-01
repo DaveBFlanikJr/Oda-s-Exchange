@@ -19,6 +19,7 @@ It runs:
 
 - `pnpm test:deployment-readiness`
 - `pnpm test:price-ingestion`
+- `pnpm test:pricing-read`
 - `pnpm migrations:verify`
 - `pnpm typecheck`
 
@@ -41,6 +42,10 @@ Default fixture:
 
 `tests/fixtures/price-ingestion/card-rush-manual-ingestion-eb02-061.json`
 
+Coverage manifest:
+
+`tests/fixtures/price-ingestion/card-rush-manual-publish-coverage.json`
+
 Raw-observation ingestion only:
 
 ```bash
@@ -59,9 +64,16 @@ Custom fixture path:
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm ingest:card-rush-fixture --fixture tests/fixtures/price-ingestion/card-rush-manual-ingestion-eb02-061.json
 ```
 
-The script reads local committed fixture JSON only. It verifies the Card Rush compliance row, resolves `card_variants` by `cardCode` and `source_variant_key`, inserts raw observations, derives canonical candidates, and publishes only when `--publish` is present.
+The script reads local committed fixture JSON only. It verifies the Card Rush compliance row, resolves `card_variants` by `cardCode` and `source_variant_key`, inserts raw observations, derives canonical candidates, checks that the fixture's committed expected canonical selections still derive, and publishes only when `--publish` is present.
 
-The curated manual fixture also includes same-day competing eligible Card Rush conditions for the same variant so readiness validation can prove the default canonical publish path prefers the intended best ungraded condition before publishing to `price_history`.
+The committed publish set now spans:
+
+- a same-day competing-condition proof fixture for `EB02-061`
+- a second `EB02-061` day for multi-day history
+- an additional treatment-safe published card
+- a treatment-safe `no_qualifying_rows` card-day
+
+Those fixtures are recorded in the coverage manifest so readiness checks can prove the rollout covers multiple cards, multiple days, and at least one empty-history scenario without relying on ad hoc local publish choices.
 
 ## Lineage Audit Gate
 
@@ -71,6 +83,7 @@ Before changing emitted card-detail pricing metadata or calling the reader cutov
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm audit:pricing-lineage
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm audit:pricing-lineage --window-days 35
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm audit:pricing-lineage --card-code EB02-061 --window-days 35
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm audit:pricing-lineage --manifest tests/fixtures/price-ingestion/card-rush-manual-publish-coverage.json
 ```
 
 The audit reports:
@@ -79,5 +92,7 @@ The audit reports:
 - how many already satisfy the qualifying canonical reader predicate
 - how many would be excluded
 - whether exclusions are driven by missing `canonical_price_point_id`, missing `source_day_jst`, or legacy pricing-basis rows
+
+When `--manifest` is provided, the audit also reconciles the committed treatment-safe publish set against actual `canonical_price_points` and published `price_history` rows for the manifest's card/day coverage keys. That reconciliation assumes a constrained publish window for the listed fixtures and should be reviewed before calling live coverage healthy.
 
 The chosen rollout path is to keep `card-detail.v2` and flip its emitted metadata in place once this audit shows acceptable coverage for the intended rollout scope. Do not make that metadata change before the audit passes.

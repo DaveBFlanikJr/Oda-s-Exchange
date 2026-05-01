@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,46 +20,14 @@ import type {
   PriceIngestionRawPriceObservationInsert,
   PriceIngestionRawPriceObservationRow
 } from "@/lib/pricing/ingestion/types";
-import type {
-  PriceIngestionConditionScale,
-  PriceIngestionListingKind,
-  PriceIngestionMatchConfidence
-} from "@/lib/pricing/ingestion/constants";
-import type { AvailabilityStatus } from "@/lib/types/market";
-
-type ManualFixtureCase = {
-  id: string;
-  source_listing_id: string;
-  source_url: string;
-  source_variant_key: string | null;
-  raw_title: string;
-  raw_condition: string | null;
-  raw_price_text: string | null;
-  availability_status: AvailabilityStatus;
-  raw_text_snapshot: string;
-  snapshot_ref: string;
-  expected: {
-    normalized_card_code: string;
-    listing_kind: PriceIngestionListingKind;
-    condition: PriceIngestionConditionScale;
-    match_confidence: PriceIngestionMatchConfidence;
-    excluded_reason?: string;
-    should_insert_raw: boolean;
-    should_publish_canonical: boolean;
-  };
-};
-
-type ManualFixture = {
-  schema: string;
-  description: string;
-  source: "card_rush";
-  sourcePolicyUrl: string;
-  captureMethod: "manual_fixture";
-  cardCode: string;
-  observedAt: string;
-  parserVersion: string;
-  cases: ManualFixtureCase[];
-};
+import {
+  deriveFixtureCanonicalCandidates,
+  defaultManualFixturePath,
+  loadManualFixture,
+  parseFixturePriceJpy,
+  type ManualFixture,
+  type ManualFixtureCase
+} from "@/scripts/price-ingestion/manual-publish-fixtures";
 
 type CliOptions = {
   fixturePath: string;
@@ -74,13 +41,6 @@ type VariantRow = {
 };
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const defaultFixturePath = path.join(
-  repoRoot,
-  "tests",
-  "fixtures",
-  "price-ingestion",
-  "card-rush-manual-ingestion-eb02-061.json"
-);
 
 function printUsage() {
   console.log("Usage: pnpm ingest:card-rush-fixture [--fixture <path>] [--publish]");
@@ -90,7 +50,7 @@ function printUsage() {
 }
 
 function parseArgs(argv: string[]): CliOptions {
-  let fixturePath = defaultFixturePath;
+  let fixturePath = defaultManualFixturePath;
   let publish = false;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -138,33 +98,6 @@ function requireServiceRoleCredentials() {
   }
 }
 
-async function loadFixture(fixturePath: string) {
-  const fixture = JSON.parse(await readFile(fixturePath, "utf8")) as ManualFixture;
-
-  if (fixture.schema !== "card-rush-manual-ingestion-fixture/v1") {
-    throw new Error(`Unsupported fixture schema: ${fixture.schema}`);
-  }
-
-  if (fixture.source !== "card_rush") {
-    throw new Error(`Unsupported fixture source: ${fixture.source}`);
-  }
-
-  if (
-    fixture.sourcePolicyUrl !== "https://cardrush.media/data_policy" ||
-    fixture.captureMethod !== "manual_fixture"
-  ) {
-    throw new Error(
-      "Card Rush fixture must preserve the approved policy URL and manual_fixture capture method."
-    );
-  }
-
-  if (!fixture.cases.some((testCase) => testCase.expected.should_insert_raw)) {
-    throw new Error("Fixture has no raw observations to insert.");
-  }
-
-  return fixture;
-}
-
 async function verifyCardRushCompliance(supabase: PriceIngestionAdminSupabaseClient) {
   const compliance = await getSourceComplianceRecordBySource("card_rush", supabase);
 
@@ -186,24 +119,6 @@ async function verifyCardRushCompliance(supabase: PriceIngestionAdminSupabaseCli
       ].join(" ")
     );
   }
-}
-
-function parsePriceJpy(
-  rawPriceText: string | null,
-  availabilityStatus: AvailabilityStatus
-) {
-  if (availabilityStatus !== "available") {
-    return null;
-  }
-
-  const digits = rawPriceText?.replace(/[^\d]/g, "") ?? "";
-
-  if (!digits) {
-    return null;
-  }
-
-  const price = Number.parseInt(digits, 10);
-  return Number.isSafeInteger(price) ? price : null;
 }
 
 async function loadVariantMap(
@@ -258,7 +173,10 @@ function buildRawObservationInsert(
   const matchedVariantId = testCase.source_variant_key
     ? variantMap.get(testCase.source_variant_key)?.id ?? null
     : null;
-  const priceJpy = parsePriceJpy(testCase.raw_price_text, testCase.availability_status);
+  const priceJpy = parseFixturePriceJpy(
+    testCase.raw_price_text,
+    testCase.availability_status
+  );
   const canonicalEligible =
     testCase.expected.should_publish_canonical &&
     testCase.availability_status === "available" &&
@@ -348,7 +266,12 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   requireServiceRoleCredentials();
 
-  const fixture = await loadFixture(options.fixturePath);
+  const fixture = await loadManualFixture(options.fixturePath);
+
+  if (!fixture.cases.some((testCase) => testCase.expected.should_insert_raw)) {
+    throw new Error("Fixture has no raw observations to insert.");
+  }
+
   const supabase = getPriceIngestionAdminSupabaseClient();
 
   await verifyCardRushCompliance(supabase);
@@ -366,6 +289,41 @@ async function main() {
     basis: PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS,
     observations: rawObservations.map(toCanonicalObservation)
   });
+
+  const expectedFixtureCandidates = deriveFixtureCanonicalCandidates(fixture);
+
+  if (expectedFixtureCandidates.length !== fixture.expectedCanonicalSelections.length) {
+    throw new Error(
+      [
+        "Fixture expectedCanonicalSelections length does not match derived candidate count.",
+        `expected=${fixture.expectedCanonicalSelections.length}`,
+        `derived=${expectedFixtureCandidates.length}`
+      ].join(" ")
+    );
+  }
+
+  for (const expectedSelection of fixture.expectedCanonicalSelections) {
+    const matchingCandidate = expectedFixtureCandidates.find(
+      (candidate) =>
+        candidate.basis === expectedSelection.pricing_basis &&
+        candidate.sourceDayJst === expectedSelection.source_day_jst &&
+        candidate.observation.sourceListingId === expectedSelection.source_listing_id &&
+        candidate.observation.sourceVariantKey === expectedSelection.source_variant_key &&
+        candidate.conditionScale === expectedSelection.condition
+    );
+
+    if (!matchingCandidate) {
+      throw new Error(
+        [
+          "Fixture expectedCanonicalSelections does not match derived canonical candidates.",
+          `missing source_listing_id=${expectedSelection.source_listing_id}`,
+          `source_variant_key=${expectedSelection.source_variant_key}`,
+          `source_day_jst=${expectedSelection.source_day_jst}`
+        ].join(" ")
+      );
+    }
+  }
+
   const canonicalPoints = await upsertCanonicalPricePoints(
     canonicalCandidates.map((candidate) => toCanonicalInsert(fixture, candidate)),
     supabase

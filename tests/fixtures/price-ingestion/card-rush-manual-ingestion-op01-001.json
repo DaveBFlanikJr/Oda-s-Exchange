@@ -1,0 +1,83 @@
+{
+  "schema": "card-rush-manual-ingestion-fixture/v1",
+  "description": "Treatment-safe Card Rush manual publish fixture for OP01-001 default variant coverage.",
+  "source": "card_rush",
+  "sourcePolicyUrl": "https://cardrush.media/data_policy",
+  "captureMethod": "manual_fixture",
+  "cardCode": "OP01-001",
+  "observedAt": "2026-04-18T00:00:00.000+09:00",
+  "parserVersion": "manual-card-rush-fixture.v2",
+  "expectedCanonicalSelections": [
+    {
+      "pricing_basis": "daily_best_available_ungraded_best_condition_jst",
+      "source_listing_id": "manual-op01-001-standard-mint-001",
+      "source_variant_key": "STD",
+      "condition": "mint",
+      "source_day_jst": "2026-04-18"
+    }
+  ],
+  "cases": [
+    {
+      "id": "card_rush_manual_op01_standard_mint",
+      "source_listing_id": "manual-op01-001-standard-mint-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=OP01-001",
+      "source_variant_key": "STD",
+      "raw_title": "OP01-001 standard single card listing",
+      "raw_condition": "Mint",
+      "raw_price_text": "JPY 450",
+      "availability_status": "available",
+      "raw_text_snapshot": "Manual fixture evidence: OP01-001 treatment-safe standard listing at JPY 450.",
+      "snapshot_ref": "manual-fixtures/card-rush/2026-04-18/op01-001-standard-mint.txt",
+      "expected": {
+        "normalized_card_code": "OP01-001",
+        "listing_kind": "single_card",
+        "condition": "mint",
+        "match_confidence": "high",
+        "should_insert_raw": true,
+        "should_publish_canonical": true
+      }
+    },
+    {
+      "id": "card_rush_manual_op01_sold_out",
+      "source_listing_id": "manual-op01-001-sold-out-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=OP01-001",
+      "source_variant_key": "STD",
+      "raw_title": "OP01-001 standard single card listing",
+      "raw_condition": "Near Mint",
+      "raw_price_text": "JPY 450",
+      "availability_status": "sold_out",
+      "raw_text_snapshot": "Manual fixture evidence: OP01-001 sold-out listing.",
+      "snapshot_ref": "manual-fixtures/card-rush/2026-04-18/op01-001-sold-out.txt",
+      "expected": {
+        "normalized_card_code": "OP01-001",
+        "listing_kind": "single_card",
+        "condition": "near_mint",
+        "match_confidence": "high",
+        "excluded_reason": "availability_status",
+        "should_insert_raw": true,
+        "should_publish_canonical": false
+      }
+    },
+    {
+      "id": "card_rush_manual_op01_proxy_noise",
+      "source_listing_id": "manual-op01-001-proxy-001",
+      "source_url": "https://www.cardrush-op.jp/product-list?keyword=OP01-001",
+      "source_variant_key": null,
+      "raw_title": "OP01-001 proxy custom listing",
+      "raw_condition": "Mint",
+      "raw_price_text": "JPY 150",
+      "availability_status": "available",
+      "raw_text_snapshot": "Manual fixture evidence: OP01-001 proxy/custom noise that must not publish.",
+      "snapshot_ref": "manual-fixtures/card-rush/2026-04-18/op01-001-proxy-noise.txt",
+      "expected": {
+        "normalized_card_code": "OP01-001",
+        "listing_kind": "proxy_custom",
+        "condition": "mint",
+        "match_confidence": "excluded",
+        "excluded_reason": "proxy_custom",
+        "should_insert_raw": true,
+        "should_publish_canonical": false
+      }
+    }
+  ]
+}

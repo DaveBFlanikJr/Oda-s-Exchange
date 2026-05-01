@@ -37,8 +37,13 @@ type VariantRow = {
 type CatalogSupabaseClient = ReturnType<typeof getServerSupabaseClient>;
 
 export async function getCatalogItems(limit = 2500) {
-  const supabase = getServerSupabaseClient();
+  return getCatalogItemsWithSupabase(getServerSupabaseClient(), limit);
+}
 
+export async function getCatalogItemsWithSupabase(
+  supabase: CatalogSupabaseClient,
+  limit = 2500
+) {
   const { data, error } = await supabase
     .from("card_variants")
     .select(
