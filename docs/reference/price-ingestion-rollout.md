@@ -81,7 +81,12 @@ It should cover:
 
 Later pure-helper tests can load those fixtures without needing any production imports.
 
-The manual Card Rush readiness fixture in `tests/fixtures/price-ingestion/card-rush-manual-ingestion-eb02-061.json` should also include at least one same-day competing eligible condition pair for the same variant/source/day so the default canonical basis can be proven to prefer the intended best ungraded condition before publishing.
+The manual Card Rush publish fixtures under `tests/fixtures/price-ingestion/` should stay treatment-safe and operator-curated. The current committed coverage set is recorded in `tests/fixtures/price-ingestion/card-rush-manual-publish-coverage.json` and should include:
+
+- a same-day competing eligible condition pair for one card-day so the default canonical basis can be proven to prefer the intended best ungraded condition before publishing
+- at least one second JST day for that same card so reader history is not single-point only
+- at least one additional treatment-safe default card with published canonical coverage
+- at least one treatment-safe card-day that produces no qualifying canonical rows
 
 ## Deployment Readiness
 
@@ -95,6 +100,6 @@ Deployment readiness is gated by migration verification before any fixture write
 
 The manual Card Rush fixture path is `pnpm ingest:card-rush-fixture`. It reads `tests/fixtures/price-ingestion/card-rush-manual-ingestion-eb02-061.json` by default, requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, verifies Card Rush remains `restricted` / `manual_fixture` / unscheduled, writes raw observations, derives canonical candidates, and publishes to `price_history` only with `--publish`.
 
-`pnpm audit:pricing-lineage` measures how many currently visible `price_history` rows would be excluded by the qualifying canonical reader predicate, reports lineage/source-day gaps, and supports optional `--card-code` / `--window-days` scoping for cutover review.
+`pnpm audit:pricing-lineage` measures how many currently visible `price_history` rows would be excluded by the qualifying canonical reader predicate, reports lineage/source-day gaps, supports optional `--card-code` / `--window-days` scoping for cutover review, and can reconcile the committed manual publish coverage set with `--manifest tests/fixtures/price-ingestion/card-rush-manual-publish-coverage.json`.
 
 The GitHub readiness workflow is manual-only and non-scraping. It does not install browser tooling, does not call `pnpm scrape`, and does not receive service-role write credentials. It runs `pnpm migrations:verify` with `DATABASE_URL` so stale migration state is caught before manual fixture work.

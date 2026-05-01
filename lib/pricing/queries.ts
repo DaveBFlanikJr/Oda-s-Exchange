@@ -222,10 +222,10 @@ function buildCanonicalDailySeries(
     });
 }
 
-export async function getPublicPriceHistory(
+export async function getPublicPriceHistoryWithSupabase(
+  supabase: PricingReadSupabaseClient,
   cardCode: string
 ): Promise<PublicPriceHistoryResult> {
-  const supabase = getRequiredPublicSupabaseClient();
   const requestCardCode = cardCode.trim();
   const normalizedCardCode = normalizeCardCode(cardCode);
   const variants = await loadVariantsForCard(supabase, normalizedCardCode);
@@ -249,6 +249,15 @@ export async function getPublicPriceHistory(
       priceJpy: row.price_jpy
     }))
   };
+}
+
+export async function getPublicPriceHistory(
+  cardCode: string
+): Promise<PublicPriceHistoryResult> {
+  return getPublicPriceHistoryWithSupabase(
+    getRequiredPublicSupabaseClient(),
+    cardCode
+  );
 }
 
 export async function getCanonicalCatalogPriceSnapshots(

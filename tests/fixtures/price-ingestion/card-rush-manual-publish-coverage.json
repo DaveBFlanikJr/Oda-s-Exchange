@@ -1,0 +1,61 @@
+{
+  "schema": "card-rush-manual-publish-coverage/v1",
+  "description": "Committed treatment-safe Card Rush manual publish coverage set for broader live pricing verification.",
+  "source": "card_rush",
+  "pricingBasis": "daily_best_available_ungraded_best_condition_jst",
+  "reconciliation": {
+    "strategy": "constrained_publish_window",
+    "assumptions": [
+      "Review reconciliation against an environment where the listed card/day coverage keys are intentionally published for this rollout.",
+      "Unexpected pre-existing card_rush canonical or published rows for the same variant/source_day_jst/pricing_basis keys should be treated as rollout noise and investigated before calling coverage healthy."
+    ]
+  },
+  "fixtures": [
+    {
+      "path": "tests/fixtures/price-ingestion/card-rush-manual-ingestion-eb02-061.json",
+      "coverage": {
+        "cardCode": "EB02-061",
+        "expectedOutcome": "published_history",
+        "readerSurfaces": [
+          "catalog",
+          "card_detail",
+          "api_prices"
+        ],
+        "notes": "Same-day competing eligible conditions prove the best ungraded condition selection rule."
+      }
+    },
+    {
+      "path": "tests/fixtures/price-ingestion/card-rush-manual-ingestion-eb02-061-2026-04-17.json",
+      "coverage": {
+        "cardCode": "EB02-061",
+        "expectedOutcome": "published_history",
+        "readerSurfaces": [
+          "card_detail",
+          "api_prices"
+        ],
+        "notes": "Second JST day for multi-day published history on the same treatment-safe default variant."
+      }
+    },
+    {
+      "path": "tests/fixtures/price-ingestion/card-rush-manual-ingestion-op01-001.json",
+      "coverage": {
+        "cardCode": "OP01-001",
+        "expectedOutcome": "published_history",
+        "readerSurfaces": [
+          "catalog",
+          "card_detail"
+        ],
+        "notes": "Additional treatment-safe default card with live published coverage."
+      }
+    },
+    {
+      "path": "tests/fixtures/price-ingestion/card-rush-manual-ingestion-st01-001-empty.json",
+      "coverage": {
+        "cardCode": "ST01-001",
+        "expectedOutcome": "no_qualifying_rows",
+        "readerSurfaces": [],
+        "notes": "Intentional empty-history card-day to keep no-qualifying reader behavior in scope."
+      }
+    }
+  ]
+}

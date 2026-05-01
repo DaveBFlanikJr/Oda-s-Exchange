@@ -36,6 +36,9 @@ jobs:
       - name: Run price ingestion fixture tests
         run: pnpm test:price-ingestion
 
+      - name: Run pricing read backend tests
+        run: pnpm test:pricing-read
+
       - name: Verify applied migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

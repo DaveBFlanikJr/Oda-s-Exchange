@@ -1,85 +1,28 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
+import { PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS } from "@/lib/pricing/ingestion/constants";
 import {
-  PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS,
-  PRICE_INGESTION_PARSER_VERSION
-} from "@/lib/pricing/ingestion/constants";
-import {
-  deriveCanonicalPriceCandidates,
-  type PriceIngestionRawObservationInput
-} from "@/lib/pricing/ingestion/derive";
+  countPublishableFixtureCases,
+  defaultManualCoverageManifestPath,
+  deriveFixtureCanonicalCandidates,
+  groupPublishableFixtureCases,
+  loadManualCoverageManifest,
+  loadManualFixture,
+  repoRoot,
+  type ManualCoverageManifestFixture,
+  type ManualFixture
+} from "@/scripts/price-ingestion/manual-publish-fixtures";
 
 type Issue = {
   area: string;
   message: string;
 };
 
-type ManualFixtureCase = {
-  id: string;
-  source_listing_id: string;
-  source_url: string;
-  source_variant_key: string | null;
-  raw_title: string;
-  raw_condition: string | null;
-  raw_price_text: string | null;
-  availability_status: "available" | "sold_out" | "error";
-  raw_text_snapshot: string;
-  snapshot_ref: string;
-  expected: {
-    normalized_card_code: string;
-    listing_kind: string;
-    condition: string;
-    match_confidence: string;
-    excluded_reason?: string;
-    should_insert_raw: boolean;
-    should_publish_canonical: boolean;
-  };
-};
-
-type ManualFixture = {
-  schema: string;
-  description: string;
-  source: string;
-  sourcePolicyUrl: string;
-  captureMethod: string;
-  cardCode: string;
-  observedAt: string;
-  parserVersion: string;
-  expectedCanonicalSelection: {
-    pricing_basis: string;
-    source_listing_id: string;
-    source_variant_key: string;
-    condition: string;
-    source_day_jst: string;
-  };
-  cases: ManualFixtureCase[];
-};
-
-type ExpectedManualFixtureCase = {
-  sourceVariantKey: string | null;
-  availabilityStatus: ManualFixtureCase["availability_status"];
-  listingKind: string;
-  condition: string;
-  matchConfidence: string;
-  excludedReason?: string;
-  shouldInsertRaw: boolean;
-  shouldPublishCanonical: boolean;
-};
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const workflowPath = path.join(repoRoot, ".github", "workflows", "scraper.yml");
 const packageJsonPath = path.join(repoRoot, "package.json");
 const dbSmokePath = path.join(repoRoot, "tests", "db", "card-smoke.sql");
 const dbSmokeRunnerPath = path.join(repoRoot, "tests", "db", "run-card-smoke.sh");
-const manualFixturePath = path.join(
-  repoRoot,
-  "tests",
-  "fixtures",
-  "price-ingestion",
-  "card-rush-manual-ingestion-eb02-061.json"
-);
 const migrationPaths = {
   sourceCompliance: path.join(
     repoRoot,
@@ -100,85 +43,6 @@ const migrationPaths = {
     "202604140001_add_price_history_publish_metadata.sql"
   )
 };
-
-const expectedManualFixtureCases = new Map<string, ExpectedManualFixtureCase>([
-  [
-    "card_rush_manual_standard_near_mint",
-    {
-      sourceVariantKey: "STD",
-      availabilityStatus: "available",
-      listingKind: "single_card",
-      condition: "near_mint",
-      matchConfidence: "high",
-      shouldInsertRaw: true,
-      shouldPublishCanonical: true
-    }
-  ],
-  [
-    "card_rush_manual_standard_mint_competitor",
-    {
-      sourceVariantKey: "STD",
-      availabilityStatus: "available",
-      listingKind: "single_card",
-      condition: "mint",
-      matchConfidence: "high",
-      shouldInsertRaw: true,
-      shouldPublishCanonical: true
-    }
-  ],
-  [
-    "card_rush_manual_sold_out",
-    {
-      sourceVariantKey: "STD",
-      availabilityStatus: "sold_out",
-      listingKind: "single_card",
-      condition: "mint",
-      matchConfidence: "high",
-      excludedReason: "availability_status",
-      shouldInsertRaw: true,
-      shouldPublishCanonical: false
-    }
-  ],
-  [
-    "card_rush_manual_damaged",
-    {
-      sourceVariantKey: "STD",
-      availabilityStatus: "available",
-      listingKind: "single_card",
-      condition: "damaged",
-      matchConfidence: "high",
-      excludedReason: "damaged_condition",
-      shouldInsertRaw: true,
-      shouldPublishCanonical: false
-    }
-  ],
-  [
-    "card_rush_manual_deck_noise",
-    {
-      sourceVariantKey: null,
-      availabilityStatus: "available",
-      listingKind: "deck_product",
-      condition: "unknown",
-      matchConfidence: "excluded",
-      excludedReason: "deck_product",
-      shouldInsertRaw: true,
-      shouldPublishCanonical: false
-    }
-  ],
-  [
-    "card_rush_manual_ambiguous_variant",
-    {
-      sourceVariantKey: null,
-      availabilityStatus: "available",
-      listingKind: "single_card",
-      condition: "mint",
-      matchConfidence: "excluded",
-      excludedReason: "ambiguous_variant",
-      shouldInsertRaw: true,
-      shouldPublishCanonical: false
-    }
-  ]
-]);
 
 function addIssue(issues: Issue[], area: string, message: string) {
   issues.push({ area, message });
@@ -251,54 +115,6 @@ function getWorkflowTriggerEvents(workflow: string) {
   return events;
 }
 
-function parsePriceJpy(
-  rawPriceText: string | null,
-  availabilityStatus: ManualFixtureCase["availability_status"]
-) {
-  if (availabilityStatus !== "available") {
-    return null;
-  }
-
-  const digits = rawPriceText?.replace(/[^\d]/g, "") ?? "";
-
-  if (!digits) {
-    return null;
-  }
-
-  const price = Number.parseInt(digits, 10);
-  return Number.isFinite(price) ? price : null;
-}
-
-function toDerivationObservation(
-  fixture: ManualFixture,
-  testCase: ManualFixtureCase
-): PriceIngestionRawObservationInput {
-  return {
-    id: testCase.id,
-    source: "card_rush",
-    sourceListingId: testCase.source_listing_id,
-    sourceUrl: testCase.source_url,
-    observedAt: fixture.observedAt,
-    parserVersion: PRICE_INGESTION_PARSER_VERSION,
-    normalizedCardCode: fixture.cardCode,
-    rawTitle: testCase.raw_title,
-    rawCondition: testCase.raw_condition,
-    rawPriceText: testCase.raw_price_text,
-    priceJpy: parsePriceJpy(testCase.raw_price_text, testCase.availability_status),
-    availabilityStatus: testCase.availability_status,
-    listingKind: testCase.expected.listing_kind as PriceIngestionRawObservationInput["listingKind"],
-    conditionScale: testCase.expected.condition as PriceIngestionRawObservationInput["conditionScale"],
-    rawTextSnapshot: testCase.raw_text_snapshot,
-    snapshotRef: testCase.snapshot_ref,
-    excludedReason: testCase.expected.excluded_reason ?? null,
-    matchConfidence: testCase.expected.match_confidence as PriceIngestionRawObservationInput["matchConfidence"],
-    matchedVariantId: testCase.source_variant_key
-      ? `fixture-variant-${testCase.source_variant_key}`
-      : null,
-    sourceVariantKey: testCase.source_variant_key
-  };
-}
-
 async function validateWorkflow(issues: Issue[]) {
   const workflow = await readFile(workflowPath, "utf8");
   const triggerEvents = getWorkflowTriggerEvents(workflow);
@@ -363,6 +179,13 @@ async function validateWorkflow(issues: Issue[]) {
     issues,
     "workflow",
     workflow,
+    /\bpnpm\s+test:pricing-read\b/,
+    "readiness workflow should run backend pricing-read integration tests"
+  );
+  requireMatch(
+    issues,
+    "workflow",
+    workflow,
     /\bpnpm\s+migrations:verify\b/,
     "readiness workflow should run the migration verification smoke test"
   );
@@ -388,7 +211,10 @@ async function validatePackageScripts(issues: Issue[]) {
   };
   const scripts = packageJson.scripts ?? {};
 
-  if (scripts["test:deployment-readiness"] !== "node --import tsx scripts/price-ingestion/validate-deployment-readiness.ts") {
+  if (
+    scripts["test:deployment-readiness"] !==
+    "node --import tsx scripts/price-ingestion/validate-deployment-readiness.ts"
+  ) {
     addIssue(
       issues,
       "package.json",
@@ -396,7 +222,11 @@ async function validatePackageScripts(issues: Issue[]) {
     );
   }
 
-  if (!scripts["ingest:card-rush-fixture"]?.includes("scripts/price-ingestion/ingest-card-rush-fixture.ts")) {
+  if (
+    !scripts["ingest:card-rush-fixture"]?.includes(
+      "scripts/price-ingestion/ingest-card-rush-fixture.ts"
+    )
+  ) {
     addIssue(
       issues,
       "package.json",
@@ -409,6 +239,18 @@ async function validatePackageScripts(issues: Issue[]) {
       issues,
       "package.json",
       "package.json should expose migrations:verify for deployment migration verification"
+    );
+  }
+
+  if (
+    !scripts["test:pricing-read"]?.includes(
+      "tests/pricing-read/backend.test.ts"
+    )
+  ) {
+    addIssue(
+      issues,
+      "package.json",
+      "package.json should expose test:pricing-read for backend pricing-read integration coverage"
     );
   }
 
@@ -490,8 +332,14 @@ async function validateMigrationsAndSmokeSql(issues: Issue[]) {
   );
 }
 
-async function validateManualFixture(issues: Issue[]) {
-  const fixture = JSON.parse(await readFile(manualFixturePath, "utf8")) as ManualFixture;
+function validateFixtureCaseBasics(
+  issues: Issue[],
+  fixture: ManualFixture,
+  fixtureLabel: string,
+  options: {
+    requireBroadExclusions: boolean;
+  }
+) {
   const ids = new Set<string>();
   const listingIds = new Set<string>();
   const requiredExclusions = new Set([
@@ -502,73 +350,36 @@ async function validateManualFixture(issues: Issue[]) {
   ]);
   const coveredExclusions = new Set<string>();
 
-  if (fixture.schema !== "card-rush-manual-ingestion-fixture/v1") {
-    addIssue(issues, "manual fixture", "manual fixture schema is not recognized");
-  }
-
-  if (fixture.source !== "card_rush") {
-    addIssue(issues, "manual fixture", "manual fixture source must be card_rush");
-  }
-
-  if (fixture.sourcePolicyUrl !== "https://cardrush.media/data_policy") {
-    addIssue(issues, "manual fixture", "manual fixture must record the Card Rush policy URL");
-  }
-
-  if (fixture.captureMethod !== "manual_fixture") {
-    addIssue(issues, "manual fixture", "manual fixture captureMethod must be manual_fixture");
-  }
-
   if (!/^[A-Z]{1,3}([0-9]{2})?-[0-9]{3}$/.test(fixture.cardCode)) {
-    addIssue(issues, "manual fixture", "manual fixture cardCode must be normalized");
+    addIssue(issues, fixtureLabel, "fixture cardCode must be normalized");
   }
 
   if (Number.isNaN(Date.parse(fixture.observedAt))) {
-    addIssue(issues, "manual fixture", "manual fixture observedAt must be a valid timestamp");
+    addIssue(issues, fixtureLabel, "fixture observedAt must be a valid timestamp");
   }
 
   if (!fixture.parserVersion.startsWith("manual-card-rush-fixture.")) {
-    addIssue(issues, "manual fixture", "manual fixture parserVersion should identify manual fixture ingestion");
-  }
-
-  if (fixture.cases.length < 5) {
-    addIssue(issues, "manual fixture", "manual fixture should cover publishable and excluded cases");
-  }
-
-  if (fixture.cases.length !== expectedManualFixtureCases.size) {
     addIssue(
       issues,
-      "manual fixture",
-      `manual fixture should contain exactly ${expectedManualFixtureCases.size} curated cases`
+      fixtureLabel,
+      "fixture parserVersion should identify manual fixture ingestion"
     );
   }
 
-  if (
-    fixture.expectedCanonicalSelection.pricing_basis !==
-    PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS
-  ) {
-    addIssue(
-      issues,
-      "manual fixture",
-      "manual fixture expectedCanonicalSelection must target the default canonical pricing basis"
-    );
+  if (fixture.cases.length < 3) {
+    addIssue(issues, fixtureLabel, "fixture should cover multiple curated cases");
   }
 
   for (const testCase of fixture.cases) {
-    const expectedCase = expectedManualFixtureCases.get(testCase.id);
-
-    if (!expectedCase) {
-      addIssue(issues, "manual fixture", `unexpected manual fixture case: ${testCase.id}`);
-    }
-
     if (ids.has(testCase.id)) {
-      addIssue(issues, "manual fixture", `duplicate case id: ${testCase.id}`);
+      addIssue(issues, fixtureLabel, `duplicate case id: ${testCase.id}`);
     }
     ids.add(testCase.id);
 
     if (listingIds.has(testCase.source_listing_id)) {
       addIssue(
         issues,
-        "manual fixture",
+        fixtureLabel,
         `duplicate source_listing_id: ${testCase.source_listing_id}`
       );
     }
@@ -577,7 +388,7 @@ async function validateManualFixture(issues: Issue[]) {
     if (!testCase.source_url.startsWith("https://www.cardrush-op.jp/")) {
       addIssue(
         issues,
-        "manual fixture",
+        fixtureLabel,
         `${testCase.id} should preserve the Card Rush source URL without fetching it`
       );
     }
@@ -585,7 +396,7 @@ async function validateManualFixture(issues: Issue[]) {
     if (!testCase.raw_text_snapshot || testCase.raw_text_snapshot.length > 8192) {
       addIssue(
         issues,
-        "manual fixture",
+        fixtureLabel,
         `${testCase.id} should include a bounded raw_text_snapshot`
       );
     }
@@ -593,7 +404,7 @@ async function validateManualFixture(issues: Issue[]) {
     if (!testCase.snapshot_ref.startsWith("manual-fixtures/card-rush/")) {
       addIssue(
         issues,
-        "manual fixture",
+        fixtureLabel,
         `${testCase.id} snapshot_ref should point at durable manual fixture evidence`
       );
     }
@@ -601,82 +412,16 @@ async function validateManualFixture(issues: Issue[]) {
     if (testCase.expected.normalized_card_code !== fixture.cardCode) {
       addIssue(
         issues,
-        "manual fixture",
+        fixtureLabel,
         `${testCase.id} expected normalized_card_code should match fixture cardCode`
       );
-    }
-
-    if (expectedCase) {
-      if (testCase.source_variant_key !== expectedCase.sourceVariantKey) {
-        addIssue(
-          issues,
-          "manual fixture",
-          `${testCase.id} source_variant_key should be ${expectedCase.sourceVariantKey ?? "null"}`
-        );
-      }
-
-      if (testCase.availability_status !== expectedCase.availabilityStatus) {
-        addIssue(
-          issues,
-          "manual fixture",
-          `${testCase.id} availability_status should be ${expectedCase.availabilityStatus}`
-        );
-      }
-
-      if (testCase.expected.listing_kind !== expectedCase.listingKind) {
-        addIssue(
-          issues,
-          "manual fixture",
-          `${testCase.id} listing_kind should be ${expectedCase.listingKind}`
-        );
-      }
-
-      if (testCase.expected.condition !== expectedCase.condition) {
-        addIssue(
-          issues,
-          "manual fixture",
-          `${testCase.id} condition should be ${expectedCase.condition}`
-        );
-      }
-
-      if (testCase.expected.match_confidence !== expectedCase.matchConfidence) {
-        addIssue(
-          issues,
-          "manual fixture",
-          `${testCase.id} match_confidence should be ${expectedCase.matchConfidence}`
-        );
-      }
-
-      if (testCase.expected.excluded_reason !== expectedCase.excludedReason) {
-        addIssue(
-          issues,
-          "manual fixture",
-          `${testCase.id} excluded_reason should be ${expectedCase.excludedReason ?? "unset"}`
-        );
-      }
-
-      if (testCase.expected.should_insert_raw !== expectedCase.shouldInsertRaw) {
-        addIssue(
-          issues,
-          "manual fixture",
-          `${testCase.id} should_insert_raw should be ${expectedCase.shouldInsertRaw}`
-        );
-      }
-
-      if (testCase.expected.should_publish_canonical !== expectedCase.shouldPublishCanonical) {
-        addIssue(
-          issues,
-          "manual fixture",
-          `${testCase.id} should_publish_canonical should be ${expectedCase.shouldPublishCanonical}`
-        );
-      }
     }
 
     if (testCase.expected.should_publish_canonical) {
       if (testCase.availability_status !== "available") {
         addIssue(
           issues,
-          "manual fixture",
+          fixtureLabel,
           `${testCase.id} cannot publish unless availability_status is available`
         );
       }
@@ -684,7 +429,7 @@ async function validateManualFixture(issues: Issue[]) {
       if (testCase.expected.listing_kind !== "single_card") {
         addIssue(
           issues,
-          "manual fixture",
+          fixtureLabel,
           `${testCase.id} cannot publish unless listing_kind is single_card`
         );
       }
@@ -692,7 +437,7 @@ async function validateManualFixture(issues: Issue[]) {
       if (["damaged", "graded"].includes(testCase.expected.condition)) {
         addIssue(
           issues,
-          "manual fixture",
+          fixtureLabel,
           `${testCase.id} cannot publish damaged or graded conditions`
         );
       }
@@ -700,7 +445,7 @@ async function validateManualFixture(issues: Issue[]) {
       if (!testCase.source_variant_key) {
         addIssue(
           issues,
-          "manual fixture",
+          fixtureLabel,
           `${testCase.id} must include source_variant_key before canonical publish`
         );
       }
@@ -709,72 +454,263 @@ async function validateManualFixture(issues: Issue[]) {
     }
   }
 
-  for (const expectedCaseId of expectedManualFixtureCases.keys()) {
-    if (!ids.has(expectedCaseId)) {
-      addIssue(issues, "manual fixture", `missing manual fixture case: ${expectedCaseId}`);
+  if (options.requireBroadExclusions) {
+    for (const exclusion of requiredExclusions) {
+      if (!coveredExclusions.has(exclusion)) {
+        addIssue(
+          issues,
+          fixtureLabel,
+          `fixture should cover excluded_reason=${exclusion}`
+        );
+      }
     }
   }
+}
 
-  for (const exclusion of requiredExclusions) {
-    if (!coveredExclusions.has(exclusion)) {
-      addIssue(
-        issues,
-        "manual fixture",
-        `manual fixture should cover excluded_reason=${exclusion}`
-      );
-    }
-  }
+function validateFixtureCanonicalExpectations(
+  issues: Issue[],
+  fixture: ManualFixture,
+  fixtureLabel: string
+) {
+  const derivedCandidates = deriveFixtureCanonicalCandidates(fixture);
 
-  const publishableCompetitionCases = fixture.cases.filter(
-    (testCase) =>
-      testCase.source_variant_key === fixture.expectedCanonicalSelection.source_variant_key &&
-      testCase.expected.should_publish_canonical
-  );
-
-  if (publishableCompetitionCases.length < 2) {
+  if (fixture.expectedCanonicalSelections.length !== derivedCandidates.length) {
     addIssue(
       issues,
-      "manual fixture",
-      "manual fixture should include at least two publishable competing cases for the canonical selection proof"
+      fixtureLabel,
+      [
+        "expectedCanonicalSelections length should match derived candidate count",
+        `expected=${fixture.expectedCanonicalSelections.length}`,
+        `derived=${derivedCandidates.length}`
+      ].join(" ")
     );
   }
 
-  const derivedCandidates = deriveCanonicalPriceCandidates({
-    observations: fixture.cases.map((testCase) => toDerivationObservation(fixture, testCase))
-  });
-  const expectedCandidate = derivedCandidates.find(
-    (candidate) =>
-      candidate.basis === fixture.expectedCanonicalSelection.pricing_basis &&
-      candidate.sourceDayJst === fixture.expectedCanonicalSelection.source_day_jst &&
-      candidate.observation.sourceListingId ===
-        fixture.expectedCanonicalSelection.source_listing_id
-  );
-
-  if (!expectedCandidate) {
-    addIssue(
-      issues,
-      "manual fixture",
-      "manual fixture should derive the expected canonical selection from the competing condition cases"
-    );
-  } else {
-    if (expectedCandidate.conditionScale !== fixture.expectedCanonicalSelection.condition) {
-      addIssue(
-        issues,
-        "manual fixture",
-        `expected canonical selection condition should be ${fixture.expectedCanonicalSelection.condition}`
-      );
-    }
-
+  for (const expectedSelection of fixture.expectedCanonicalSelections) {
     if (
-      expectedCandidate.observation.sourceVariantKey !==
-      fixture.expectedCanonicalSelection.source_variant_key
+      expectedSelection.pricing_basis !==
+      PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS
     ) {
       addIssue(
         issues,
-        "manual fixture",
-        `expected canonical selection source_variant_key should be ${fixture.expectedCanonicalSelection.source_variant_key}`
+        fixtureLabel,
+        "expected canonical selections must target the default canonical pricing basis"
       );
     }
+
+    const matchingCandidate = derivedCandidates.find(
+      (candidate) =>
+        candidate.basis === expectedSelection.pricing_basis &&
+        candidate.sourceDayJst === expectedSelection.source_day_jst &&
+        candidate.observation.sourceListingId === expectedSelection.source_listing_id &&
+        candidate.observation.sourceVariantKey === expectedSelection.source_variant_key
+    );
+
+    if (!matchingCandidate) {
+      addIssue(
+        issues,
+        fixtureLabel,
+        `missing derived canonical selection for ${expectedSelection.source_listing_id}`
+      );
+      continue;
+    }
+
+    if (matchingCandidate.conditionScale !== expectedSelection.condition) {
+      addIssue(
+        issues,
+        fixtureLabel,
+        [
+          `expected canonical selection ${expectedSelection.source_listing_id}`,
+          `should use condition=${expectedSelection.condition}`,
+          `actual=${matchingCandidate.conditionScale}`
+        ].join(" ")
+      );
+    }
+  }
+}
+
+function validateCoverageEntryAgainstFixture(
+  issues: Issue[],
+  entry: ManualCoverageManifestFixture,
+  fixture: ManualFixture,
+  fixtureLabel: string
+) {
+  if (entry.coverage.cardCode !== fixture.cardCode) {
+    addIssue(
+      issues,
+      fixtureLabel,
+      `coverage cardCode should be ${fixture.cardCode}, found ${entry.coverage.cardCode}`
+    );
+  }
+
+  const publishableCount = countPublishableFixtureCases(fixture);
+
+  if (
+    entry.coverage.expectedOutcome === "published_history" &&
+    fixture.expectedCanonicalSelections.length === 0
+  ) {
+    addIssue(
+      issues,
+      fixtureLabel,
+      "published_history fixtures must define at least one expected canonical selection"
+    );
+  }
+
+  if (entry.coverage.expectedOutcome === "no_qualifying_rows" && publishableCount > 0) {
+    addIssue(
+      issues,
+      fixtureLabel,
+      "no_qualifying_rows fixtures must not include publishable canonical cases"
+    );
+  }
+
+  if (
+    entry.coverage.expectedOutcome === "published_history" &&
+    entry.coverage.readerSurfaces.length === 0
+  ) {
+    addIssue(
+      issues,
+      fixtureLabel,
+      "published_history fixtures should name at least one reader surface to verify"
+    );
+  }
+}
+
+async function validateManualCoverageFixtures(issues: Issue[]) {
+  const manifest = await loadManualCoverageManifest(defaultManualCoverageManifestPath);
+
+  if (
+    manifest.pricingBasis !== PRICE_INGESTION_DEFAULT_CANONICAL_PRICING_BASIS
+  ) {
+    addIssue(
+      issues,
+      "manual coverage manifest",
+      "coverage manifest must target the default canonical pricing basis"
+    );
+  }
+
+  if (manifest.reconciliation.strategy !== "constrained_publish_window") {
+    addIssue(
+      issues,
+      "manual coverage manifest",
+      "coverage manifest must declare constrained_publish_window reconciliation"
+    );
+  }
+
+  if (manifest.reconciliation.assumptions.length === 0) {
+    addIssue(
+      issues,
+      "manual coverage manifest",
+      "coverage manifest must document reconciliation assumptions"
+    );
+  }
+
+  if (manifest.fixtures.length < 4) {
+    addIssue(
+      issues,
+      "manual coverage manifest",
+      "coverage manifest should include multiple curated fixtures, not a single card-day"
+    );
+  }
+
+  const uniqueCards = new Set<string>();
+  const publishedCards = new Set<string>();
+  const cardsWithNoQualifyingRows = new Set<string>();
+  const publishedDaysByCard = new Map<string, Set<string>>();
+  let hasSameDayCompetitionProof = false;
+  let hasAllReaderSurfaces = false;
+
+  for (const entry of manifest.fixtures) {
+    const fixture = await loadManualFixture(entry.path);
+    const fixtureLabel = `manual fixture ${entry.path}`;
+    uniqueCards.add(fixture.cardCode);
+
+    const requireBroadExclusions =
+      entry.path === "tests/fixtures/price-ingestion/card-rush-manual-ingestion-eb02-061.json";
+    validateFixtureCaseBasics(issues, fixture, fixtureLabel, {
+      requireBroadExclusions
+    });
+    validateFixtureCanonicalExpectations(issues, fixture, fixtureLabel);
+    validateCoverageEntryAgainstFixture(issues, entry, fixture, fixtureLabel);
+
+    if (entry.coverage.expectedOutcome === "published_history") {
+      publishedCards.add(fixture.cardCode);
+    } else {
+      cardsWithNoQualifyingRows.add(fixture.cardCode);
+    }
+
+    for (const expectedSelection of fixture.expectedCanonicalSelections) {
+      const days = publishedDaysByCard.get(fixture.cardCode) ?? new Set<string>();
+      days.add(expectedSelection.source_day_jst);
+      publishedDaysByCard.set(fixture.cardCode, days);
+    }
+
+    for (const groupedCases of groupPublishableFixtureCases(fixture).values()) {
+      if (groupedCases.length >= 2) {
+        hasSameDayCompetitionProof = true;
+      }
+    }
+
+    if (
+      entry.coverage.expectedOutcome === "published_history" &&
+      entry.coverage.readerSurfaces.includes("catalog") &&
+      entry.coverage.readerSurfaces.includes("card_detail") &&
+      entry.coverage.readerSurfaces.includes("api_prices")
+    ) {
+      hasAllReaderSurfaces = true;
+    }
+  }
+
+  if (publishedCards.size < 2) {
+    addIssue(
+      issues,
+      "manual coverage manifest",
+      "coverage manifest should publish canonical rows for multiple cards"
+    );
+  }
+
+  if (uniqueCards.size < 3) {
+    addIssue(
+      issues,
+      "manual coverage manifest",
+      "coverage manifest should cover at least several distinct cards"
+    );
+  }
+
+  if (cardsWithNoQualifyingRows.size < 1) {
+    addIssue(
+      issues,
+      "manual coverage manifest",
+      "coverage manifest should include at least one no_qualifying_rows card"
+    );
+  }
+
+  const hasMultiDayPublishedHistory = [...publishedDaysByCard.values()].some(
+    (days) => days.size >= 2
+  );
+
+  if (!hasMultiDayPublishedHistory) {
+    addIssue(
+      issues,
+      "manual coverage manifest",
+      "coverage manifest should include at least one card with multi-day publish history"
+    );
+  }
+
+  if (!hasSameDayCompetitionProof) {
+    addIssue(
+      issues,
+      "manual coverage manifest",
+      "coverage manifest should preserve at least one same-day competing eligible condition proof"
+    );
+  }
+
+  if (!hasAllReaderSurfaces) {
+    addIssue(
+      issues,
+      "manual coverage manifest",
+      "coverage manifest should include at least one published card verified across catalog, card detail, and /api/prices"
+    );
   }
 }
 
@@ -784,14 +720,16 @@ async function main() {
   await validateWorkflow(issues);
   await validatePackageScripts(issues);
   await validateMigrationsAndSmokeSql(issues);
-  await validateManualFixture(issues);
+  await validateManualCoverageFixtures(issues);
 
   if (issues.length === 0) {
     console.log("Deployment readiness checks passed.");
     return;
   }
 
-  console.error(`Found ${issues.length} deployment readiness issue${issues.length === 1 ? "" : "s"}:`);
+  console.error(
+    `Found ${issues.length} deployment readiness issue${issues.length === 1 ? "" : "s"}:`
+  );
   for (const issue of issues) {
     console.error(`- ${issue.area}: ${issue.message}`);
   }
