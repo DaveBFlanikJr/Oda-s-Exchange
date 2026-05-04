@@ -2,6 +2,7 @@
 
 ## Time Log
 
+- 2026-05-04 17:43:22 JST - Implemented and moved to `docs/implemented-proposals/` after the broader live pricing coverage rollout merged, the coverage manifest and committed fixture set were in place, and readiness validation passed
 - 2026-05-01 17:50:31 JST - Revised proposal after review feedback and moved to `docs/approved/`
 - 2026-05-01 00:10:49 JST - Created proposal in `docs/proposals/`
 
@@ -105,6 +106,9 @@ That should make live coverage intentional rather than inferred from whichever r
 - Verify catalog, card detail, and `/api/prices/[cardCode]` for the cards covered by the publish set
 - Confirm the coverage manifest or reconciliation tooling matches the resulting canonical and published rows under the chosen baseline assumptions
 
-## Approval
+## Implementation
 
-- Status: Approved
+- Status: Implemented
+- Merged by PR #17 in `80b2514`.
+- Implemented coverage uses committed Card Rush manual fixtures and the coverage manifest at `tests/fixtures/price-ingestion/card-rush-manual-publish-coverage.json`.
+- Local completion validation on 2026-05-04 passed `pnpm test:price-ingestion`, `pnpm test:pricing-read`, `pnpm test:deployment-readiness`, `pnpm typecheck`, and `pnpm migrations:verify`.
