@@ -1,6 +1,6 @@
 # System Design Workspace Context
 
-Last updated: 2026-04-27
+Last updated: 2026-04-30
 
 ## Identity
 
@@ -48,11 +48,10 @@ We are building a high-precision price intelligence service for the Japanese One
 
 ## Reference Docs
 
-- `docs/repository-migration-report.md` for prior repository-structure changes and migration context
+- `docs/CONTEXT.md` is the docs entrypoint for folder meanings, naming, proposal lifecycle, and where stable reference docs now live
 - `system-design/repository-structure-migration-plan.md` for the current phased plan to improve frontend/backend boundaries
 - `system-design/proposal-template.md` for new feature or refactor proposals before implementation starts
-- `docs/card-detail-v2.md` for deeper card-detail architecture and behavior notes
-- Load these only when the task needs historical detail or a deeper design reference
+- After opening `docs/CONTEXT.md`, use the relevant files under `docs/reference/` for historical detail or deeper design reference only when needed
 
 ## Responsibilities
 
@@ -67,6 +66,8 @@ We are building a high-precision price intelligence service for the Japanese One
 - Keep pricing logic centralized instead of scattering business rules across routes and components
 - Maintain secure boundaries between public-read surfaces and protected write paths
 - Treat architecture docs as living references that should match the current implementation
+- New proposals should be created under `docs/proposals/` using the naming rules in `docs/CONTEXT.md`
+- Accepted proposals should move to `docs/approved/`, then to `docs/implemented-proposals/` after implementation
 
 ## System Architecture
 

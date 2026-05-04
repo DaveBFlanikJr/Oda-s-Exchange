@@ -1,6 +1,6 @@
 # Components Workspace Context
 
-Last updated: 2026-04-27
+Last updated: 2026-04-30
 
 ## Identity
 
@@ -19,6 +19,12 @@ This workspace covers shared frontend implementation patterns used across the ap
 - `components/ui/`
 - `components/providers/`
 - `app/globals.css`
+- `docs/`
+
+## Reference Docs
+
+- `docs/CONTEXT.md` is the docs entrypoint for folder meanings, naming, proposal lifecycle, and where stable reference docs now live
+- Load docs only when the task changes documented behavior, proposal status, or user-facing implementation guidance
 
 ## Responsibilities
 
@@ -48,6 +54,7 @@ This workspace covers shared frontend implementation patterns used across the ap
 - Loading: use shadcn `Skeleton` components for initial fetch states
 - Format frontend pricing with the shared helpers in `@/lib/pricing`
 - JPY is the default display currency; USD and EUR are reference conversions only
+- Frontend proposal or behavior docs should follow `docs/CONTEXT.md`
 
 ## Testing Expectations
 
@@ -56,3 +63,8 @@ This workspace covers shared frontend implementation patterns used across the ap
 - Shared frontend logic tests should use lowercase kebab-case and end with `.test.ts`
 - If the repo does not yet have a colocated frontend test file for the area, add the test in the nearest sensible test location and call out the placement in the PR
 - If tests cannot be added yet, explain why and document the remaining risk before asking for merge approval
+
+## Documentation Expectations
+
+- If a frontend task changes shared behavior, update the relevant file under `docs/`
+- If the task starts or revises a proposal, follow `docs/CONTEXT.md`

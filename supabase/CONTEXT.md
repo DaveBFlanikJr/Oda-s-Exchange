@@ -1,6 +1,6 @@
 # Supabase Workspace Context
 
-Last updated: 2026-04-27
+Last updated: 2026-04-30
 
 ## Identity
 
@@ -20,10 +20,8 @@ This workspace covers the data model, persistence rules, and security boundaries
 
 ## Reference Docs
 
-- `docs/repository-migration-report.md` for database-adjacent repository migration context
-- `docs/deployment-readiness.md` for database readiness checks that affect release confidence
-- `docs/price-data-ingestion-checklist.md` for persistence expectations tied to pricing data quality
-- Load these only when the task needs migration history, release validation, or data-quality background
+- `docs/CONTEXT.md` is the docs entrypoint for folder meanings, naming, proposal lifecycle, and where stable reference docs now live
+- After opening `docs/CONTEXT.md`, use the relevant files under `docs/reference/` for migration history, release validation, or data-quality background only when needed
 
 ## Responsibilities
 
@@ -101,3 +99,8 @@ create table public.price_history (
 - Database smoke checks and SQL validation should live under `tests/db/`
 - Database-oriented TypeScript tests should use lowercase kebab-case and end with `.test.ts`
 - Migration-related validation should be called out explicitly in the PR, including any checks that were not run
+
+## Documentation Expectations
+
+- Update `docs/` when schema or persistence behavior changes affect rollout or operator expectations
+- If the task starts or revises a proposal, follow `docs/CONTEXT.md`

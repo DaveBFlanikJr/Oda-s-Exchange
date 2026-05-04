@@ -225,7 +225,7 @@ select
   'db-smoke/1',
   'EB02-061',
   'STD',
-  'EB02-061 standard listing',
+  'EB02-061 near-mint standard listing',
   'Near Mint',
   'near_mint',
   '12,345 JPY',
@@ -288,7 +288,7 @@ select
   raw.id,
   raw.snapshot_ref,
   1,
-  'db smoke canonical derived from raw observation',
+  'db smoke canonical initial near-mint candidate before condition-aware competition',
   'db-smoke/1'
 from available_raw_observation raw
 where raw.matched_variant_id is not null
@@ -375,6 +375,133 @@ with mint_raw_observation as (
     matched_variant_id
   from public.raw_price_observations
   where source_listing_id = 'db-smoke-eb02-061-available-mint'
+    and parser_version = 'db-smoke/1'
+  order by created_at desc
+  limit 1
+)
+insert into public.canonical_price_points (
+  variant_id,
+  source,
+  source_day_jst,
+  pricing_basis,
+  condition_scale,
+  price_jpy,
+  observed_at,
+  evidence_kind,
+  raw_observation_id,
+  evidence_ref,
+  selection_rank,
+  selection_reason,
+  derivation_version
+)
+select
+  raw.matched_variant_id,
+  raw.source,
+  (raw.observed_at at time zone 'Asia/Tokyo')::date,
+  'daily_best_available_ungraded_best_condition_jst',
+  raw.normalized_condition,
+  raw.price_jpy,
+  raw.observed_at,
+  'raw_observation',
+  raw.id,
+  raw.snapshot_ref,
+  0,
+  'db smoke condition-aware best-condition update from competing raw observations',
+  'db-smoke/1'
+from mint_raw_observation raw
+where raw.matched_variant_id is not null
+  and raw.price_jpy is not null
+on conflict (variant_id, source, source_day_jst, pricing_basis)
+do update set
+  condition_scale = excluded.condition_scale,
+  price_jpy = excluded.price_jpy,
+  observed_at = excluded.observed_at,
+  raw_observation_id = excluded.raw_observation_id,
+  evidence_ref = excluded.evidence_ref,
+  selection_rank = excluded.selection_rank,
+  selection_reason = excluded.selection_reason,
+  derivation_version = excluded.derivation_version
+returning
+  variant_id,
+  source,
+  source_day_jst,
+  pricing_basis,
+  condition_scale,
+  price_jpy,
+  evidence_kind,
+  raw_observation_id,
+  derivation_version;
+
+with target_variant as (
+  select id
+  from public.card_variants
+  where card_id = 'EB02-061'
+    and source_variant_key = 'STD'
+  order by id
+  limit 1
+)
+insert into public.raw_price_observations (
+  source,
+  source_listing_id,
+  source_url,
+  observed_at,
+  parser_version,
+  normalized_card_code,
+  source_variant_key,
+  raw_title,
+  raw_condition,
+  normalized_condition,
+  raw_price_text,
+  price_jpy,
+  availability_status,
+  listing_kind,
+  normalized_parse_output,
+  raw_text_snapshot,
+  snapshot_ref,
+  excluded_reason,
+  match_confidence,
+  matched_variant_id
+)
+select
+  'card_rush',
+  'db-smoke-eb02-061-available-mint-later',
+  'https://www.cardrush-op.jp/product-list?keyword=EB02-061',
+  timestamptz '2099-01-01 00:03:00+00',
+  'db-smoke/1',
+  'EB02-061',
+  'STD',
+  'EB02-061 mint standard listing',
+  'Mint',
+  'mint',
+  '13,400 JPY',
+  13400,
+  'available',
+  'single_card',
+  '{"condition_bucket":"mint","variant_treatment":"standard","canonical_eligible":true}'::jsonb,
+  'db smoke raw snapshot available mint',
+  'tests/db/raw/card-rush/eb02-061/available-mint.json',
+  null,
+  'high',
+  target_variant.id
+from target_variant
+returning
+  source_listing_id,
+  availability_status,
+  price_jpy,
+  normalized_parse_output,
+  matched_variant_id;
+
+with mint_raw_observation as (
+  select
+    id,
+    source,
+    observed_at,
+    normalized_condition,
+    price_jpy,
+    snapshot_ref,
+    matched_variant_id
+  from public.raw_price_observations
+  where source_listing_id = 'db-smoke-eb02-061-available-mint-later'
     and parser_version = 'db-smoke/1'
   order by created_at desc
   limit 1
@@ -615,11 +742,28 @@ select
   matched_variant_id
 from public.raw_price_observations
 where source_listing_id in (
-  'db-smoke-eb02-061-available-mint',
   'db-smoke-eb02-061-available-near-mint',
+  'db-smoke-eb02-061-available-mint',
+  'db-smoke-eb02-061-available-mint-later',
   'db-smoke-eb02-061-soldout'
 )
 order by source_listing_id;
+
+select
+  variant_id,
+  source,
+  source_day_jst,
+  pricing_basis,
+  condition_scale,
+  price_jpy,
+  selection_rank,
+  selection_reason,
+  derivation_version
+from public.canonical_price_points
+where source = 'card_rush'
+  and source_day_jst = date '2099-01-01'
+  and pricing_basis = 'daily_best_available_ungraded_best_condition_jst'
+order by variant_id;
 
 select
   variant_id,
@@ -649,8 +793,9 @@ select
   ) as normalized_parse_output_rows
 from public.raw_price_observations
 where source_listing_id in (
-  'db-smoke-eb02-061-available-mint',
   'db-smoke-eb02-061-available-near-mint',
+  'db-smoke-eb02-061-available-mint',
+  'db-smoke-eb02-061-available-mint-later',
   'db-smoke-eb02-061-soldout'
 );
 
@@ -660,7 +805,7 @@ select
     where pricing_basis = 'daily_best_available_ungraded_best_condition_jst'
       and evidence_kind = 'raw_observation'
       and raw_observation_id is not null
-      and price_jpy = 12999
+      and price_jpy = 13400
       and condition_scale = 'mint'
   ) as raw_linked_default_basis_rows
 from public.canonical_price_points
@@ -672,7 +817,7 @@ select
   count(*) filter (
     where source = 'card_rush'
       and availability_status = 'available'
-      and price_jpy = 12999
+      and price_jpy = 13400
       and canonical_price_point_id is not null
       and pricing_basis = 'daily_best_available_ungraded_best_condition_jst'
       and source_day_jst = date '2099-01-01'
@@ -686,6 +831,8 @@ where source = 'card_rush'
 do $$
 declare
   published_row_count integer;
+  published_mint_row_count integer;
+  canonical_mint_row_count integer;
 begin
   select count(*)
   into published_row_count
@@ -696,6 +843,37 @@ begin
 
   if published_row_count <> 1 then
     raise exception 'Expected exactly one idempotently published price_history row, found %', published_row_count;
+  end if;
+
+  select count(*)
+  into published_mint_row_count
+  from public.price_history
+  where source = 'card_rush'
+    and source_day_jst = date '2099-01-01'
+    and pricing_basis = 'daily_best_available_ungraded_best_condition_jst'
+    and price_jpy = 13400
+    and condition_scale = 'mint';
+
+  if published_mint_row_count <> 1 then
+    raise exception
+      'Expected published price_history row to reflect the mint competitor selection, found % matching rows',
+      published_mint_row_count;
+  end if;
+
+  select count(*)
+  into canonical_mint_row_count
+  from public.canonical_price_points
+  where source = 'card_rush'
+    and source_day_jst = date '2099-01-01'
+    and pricing_basis = 'daily_best_available_ungraded_best_condition_jst'
+    and price_jpy = 13400
+    and condition_scale = 'mint'
+    and selection_reason = 'db smoke condition-aware best-condition update from competing raw observations';
+
+  if canonical_mint_row_count <> 1 then
+    raise exception
+      'Expected one condition-aware canonical mint point after same-day competition, found %',
+      canonical_mint_row_count;
   end if;
 end $$;
 

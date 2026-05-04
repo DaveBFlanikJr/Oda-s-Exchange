@@ -1,6 +1,6 @@
 # Backend Workspace Context
 
-Last updated: 2026-04-27
+Last updated: 2026-04-30
 
 ## Identity
 
@@ -21,6 +21,12 @@ This workspace covers shared backend and server-side application behavior. Use i
 - `lib/pricing/`
 - `lib/security/`
 - `lib/supabase/server-client.ts`
+- `docs/`
+
+## Reference Docs
+
+- `docs/CONTEXT.md` is the docs entrypoint for folder meanings, naming, proposal lifecycle, and where stable reference docs now live
+- Load docs when a backend contract, API shape, or pricing-read policy changes
 
 ## Responsibilities
 
@@ -48,6 +54,7 @@ This workspace covers shared backend and server-side application behavior. Use i
 - Public API endpoints should be rate limited
 - Writes must stay in protected server-side code or GitHub Actions, never public clients
 - Secrets such as `SUPABASE_SERVICE_ROLE_KEY` must never be exposed to the client
+- Backend proposal or contract docs should follow `docs/CONTEXT.md`
 
 ## Testing Expectations
 
@@ -55,3 +62,8 @@ This workspace covers shared backend and server-side application behavior. Use i
 - Backend test files should use lowercase kebab-case and end with `.test.ts`
 - Prefer placing backend tests in `tests/` or the nearest existing backend-focused test location that keeps the scope obvious
 - If a backend change relies on manual validation instead of automated coverage, record the manual steps and call out the risk in the PR
+
+## Documentation Expectations
+
+- If backend behavior or API contracts change, update the matching docs under `docs/`
+- If the task introduces or updates a proposal, follow `docs/CONTEXT.md`

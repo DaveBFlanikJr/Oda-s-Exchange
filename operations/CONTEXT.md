@@ -1,6 +1,6 @@
 # Operations Workspace Context
 
-Last updated: 2026-04-27
+Last updated: 2026-04-30
 
 ## Identity
 
@@ -15,10 +15,8 @@ This workspace covers the operational layer that keeps the product healthy: auto
 
 ## Reference Docs
 
-- `docs/deployment-readiness.md` for release and readiness expectations
-- `docs/live-marketplace-incident-report.md` for operational lessons from marketplace issues
-- `docs/price-ingestion-rollout.md` for rollout sequencing and operational follow-up
-- Load these only when the task needs operational history, release context, or incident detail
+- `docs/CONTEXT.md` is the docs entrypoint for folder meanings, naming, proposal lifecycle, and where stable reference docs now live
+- After opening `docs/CONTEXT.md`, use the relevant files under `docs/reference/` for operational history, release context, or incident detail only when needed
 
 ## Responsibilities
 
@@ -56,3 +54,8 @@ This workspace covers the operational layer that keeps the product healthy: auto
 - Operational checks should protect production data quality and runtime stability
 - Documentation should reflect real current workflows, not aspirational ones
 - Cost discipline should stay aligned with the project's zero-monthly-cost target
+
+## Documentation Expectations
+
+- Use `docs/` as the source of truth for proposal status, readiness notes, and incident history
+- When proposal status changes, move the proposal between `docs/proposals/`, `docs/approved/`, and `docs/implemented-proposals/` as defined in `docs/CONTEXT.md`

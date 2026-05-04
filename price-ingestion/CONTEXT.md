@@ -1,6 +1,6 @@
 # Price Ingestion Workspace Context
 
-Last updated: 2026-04-27
+Last updated: 2026-04-30
 
 ## Identity
 
@@ -17,10 +17,8 @@ This workspace covers the data pipeline from raw marketplace collection through 
 
 ## Reference Docs
 
-- `docs/price-data-ingestion-checklist.md` for ingestion validation expectations and rollout checks
-- `docs/price-ingestion-rollout.md` for rollout sequencing, known risks, and adoption notes
-- `docs/live-marketplace-incident-report.md` for source-quality and marketplace incident context
-- Load these only when the task needs deeper rollout history, validation criteria, or incident background
+- `docs/CONTEXT.md` is the docs entrypoint for folder meanings, naming, proposal lifecycle, and where stable reference docs now live
+- After opening `docs/CONTEXT.md`, use the relevant files under `docs/reference/` for rollout history, validation criteria, and incident background only when needed
 
 ## Responsibilities
 
@@ -63,3 +61,8 @@ This workspace covers the data pipeline from raw marketplace collection through 
 - Keep ingestion fixtures under `tests/fixtures/price-ingestion/`
 - Test or validation files should use lowercase kebab-case and end with `.test.ts` when they are standard TypeScript tests
 - If a change is validated only through scripts or manual inspection, document exactly what was run and what risk remains
+
+## Documentation Expectations
+
+- Keep ingestion rollout and checklist docs in sync with real pipeline behavior
+- If the task starts or changes a proposal, follow `docs/CONTEXT.md`
